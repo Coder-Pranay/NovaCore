@@ -1,0 +1,11 @@
+package com.novacore.assets.exception;
+
+/**
+ * Raised when an uploaded file fails validation.
+ */
+public class InvalidUploadException extends RuntimeException {
+
+    public InvalidUploadException(String message) {
+        super(message);
+    }
+}

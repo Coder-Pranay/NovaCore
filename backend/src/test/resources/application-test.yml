@@ -1,0 +1,56 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  datasource:
+    url: jdbc:postgresql://${NOVACORE_DB_HOST:localhost}:${NOVACORE_DB_PORT:5432}/novacore_test
+    username: ${NOVACORE_DB_USER:novacore}
+    password: ${NOVACORE_DB_PASSWORD:novacore}
+    hikari:
+      pool-name: NovaCoreTestHikariPool
+      maximum-pool-size: 5
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    clean-disabled: false
+
+  data:
+    redis:
+      host: ${NOVACORE_REDIS_HOST:localhost}
+      port: ${NOVACORE_REDIS_PORT:6380}
+      password: ${NOVACORE_REDIS_PASSWORD:}
+      timeout: 2s
+
+  autoconfigure:
+    exclude: []
+
+novacore:
+  storage:
+    endpoint: ${NOVACORE_STORAGE_ENDPOINT:http://localhost:9000}
+    access-key: ${NOVACORE_STORAGE_ACCESS_KEY:minioadmin}
+    secret-key: ${NOVACORE_STORAGE_SECRET_KEY:minioadmin}
+    bucket: ${NOVACORE_STORAGE_BUCKET:novacore}
+    region: ${NOVACORE_STORAGE_REGION:us-east-1}
+    max-file-size: ${NOVACORE_STORAGE_MAX_FILE_SIZE:50MB}
+    allowed-content-types: []
+  jwt:
+    secret: ${NOVACORE_JWT_SECRET:novacore-test-jwt-secret-key-change-me-32b}
+    access-token-expiration: 15m
+    refresh-token-expiration: 7d
+    issuer: novacore-test
+
+logging:
+  level:
+    root: WARN
+    com.novacore: INFO

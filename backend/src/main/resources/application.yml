@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: novacore-backend
+  profiles:
+    active: dev
+  servlet:
+    multipart:
+      max-file-size: ${NOVACORE_STORAGE_MAX_FILE_SIZE:50MB}
+      max-request-size: ${NOVACORE_STORAGE_MAX_FILE_SIZE:50MB}
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+  health:
+    redis:
+      enabled: true
+    db:
+      enabled: true
+
+novacore:
+  app:
+    name: NovaCore
+    version: 0.1.0
+  cors:
+    allowed-origins: http://localhost:3000
+  jwt:
+    secret: ${NOVACORE_JWT_SECRET:novacore-dev-jwt-secret-key-change-me-32b}
+    access-token-expiration: ${NOVACORE_JWT_ACCESS_EXPIRATION:15m}
+    refresh-token-expiration: ${NOVACORE_JWT_REFRESH_EXPIRATION:7d}
+    issuer: ${NOVACORE_JWT_ISSUER:novacore}
+  storage:
+    endpoint: ${NOVACORE_STORAGE_ENDPOINT:http://localhost:9000}
+    access-key: ${NOVACORE_STORAGE_ACCESS_KEY:minioadmin}
+    secret-key: ${NOVACORE_STORAGE_SECRET_KEY:minioadmin}
+    bucket: ${NOVACORE_STORAGE_BUCKET:novacore}
+    region: ${NOVACORE_STORAGE_REGION:us-east-1}
+    max-file-size: ${NOVACORE_STORAGE_MAX_FILE_SIZE:50MB}
+    allowed-content-types: []

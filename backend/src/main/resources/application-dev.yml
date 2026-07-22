@@ -1,0 +1,44 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    url: jdbc:postgresql://${NOVACORE_DB_HOST:localhost}:${NOVACORE_DB_PORT:5432}/${NOVACORE_DB_NAME:novacore}
+    username: ${NOVACORE_DB_USER:novacore}
+    password: ${NOVACORE_DB_PASSWORD:novacore}
+    hikari:
+      pool-name: NovaCoreHikariPool
+      maximum-pool-size: 10
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  data:
+    redis:
+      host: ${NOVACORE_REDIS_HOST:localhost}
+      port: ${NOVACORE_REDIS_PORT:6379}
+      password: ${NOVACORE_REDIS_PASSWORD:}
+      timeout: 2s
+
+management:
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    root: INFO
+    com.novacore: DEBUG
