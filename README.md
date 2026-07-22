@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # NovaCore
 
 NovaCore is a Personal Digital Operating System that organizes a user's digital life using **Life Spaces**.
@@ -70,3 +71,6 @@ See the [`docs/`](docs/) directory for product requirements, user personas, feat
 ## License
 
 See [LICENSE](LICENSE).
+=======
+# NovaCore
+>>>>>>> 8a24b0369e50b2a7e7fae32aa698ee949e29a931
