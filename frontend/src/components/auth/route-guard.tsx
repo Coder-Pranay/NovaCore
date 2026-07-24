@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { PageLoader } from "@/components/global/page-loader";
-import { useAuth } from "@/hooks";
+import { useAuth } from "@/hooks/use-auth";
 import {
   GUEST_ROUTES,
   isGuestRoute,
@@ -27,12 +27,12 @@ export function RouteGuard({ children }: RouteGuardProps) {
     }
 
     if (isPrivateRoute(pathname) && !isAuthenticated) {
-      router.replace(ROUTES.LOGIN);
+      router.replace(`${ROUTES.LOGIN}?next=${encodeURIComponent(pathname)}`);
       return;
     }
 
     if (isGuestRoute(pathname) && isAuthenticated) {
-      router.replace(ROUTES.HOME);
+      router.replace(ROUTES.DASHBOARD);
     }
   }, [isAuthenticated, isLoading, pathname, router]);
 

@@ -1,15 +1,15 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { useTheme as useNextTheme } from "next-themes";
-import { useEffect, useState } from "react";
+
+const subscribe = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 export function useTheme() {
   const { theme, setTheme, resolvedTheme, systemTheme } = useNextTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(subscribe, getClientSnapshot, getServerSnapshot);
 
   return {
     theme,

@@ -1,2 +1,1 @@
-/** Spaces API service placeholder. */
-export const spacesService = {} as const;
+export { spaceService, SPACE_PATHS } from "@/features/spaces/api/space-service";

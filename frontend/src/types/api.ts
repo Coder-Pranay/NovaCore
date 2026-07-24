@@ -40,6 +40,8 @@ export interface AuthenticatedUser {
   firstName?: string;
   lastName?: string;
   profileImageUrl?: string | null;
+  roles?: string[];
+  permissions?: string[];
 }
 
 export type { Env } from "@/config/env";

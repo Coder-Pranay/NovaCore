@@ -4,12 +4,13 @@ import {
   attachAuthHeader,
   configureApiClientAuth,
   getHttpStatusFromError,
-  handleUnauthorizedError,
   isNetworkError,
 } from "@/lib/api-client";
 import { parseApiError } from "@/utils/api-error";
 import { getAccessToken, useAuthStore } from "@/store/auth-store";
 import { ROUTES } from "@/constants";
+import { refreshSession } from "@/features/auth/utils/token-manager";
+import { AUTH_PATHS } from "@/features/auth/api/auth-service";
 
 export const apiClient = axios.create({
   baseURL: env.NEXT_PUBLIC_API_URL,
@@ -20,26 +21,55 @@ export const apiClient = axios.create({
   timeout: 30_000,
 });
 
-let refreshPromise: Promise<string | null> | null = null;
+type RetriableRequestConfig = InternalAxiosRequestConfig & {
+  _retry?: boolean;
+  _skipAuthRefresh?: boolean;
+};
+
+type QueueEntry = {
+  resolve: (token: string) => void;
+  reject: (error: unknown) => void;
+};
+
+let isRefreshing = false;
+let failedQueue: QueueEntry[] = [];
+
+function shouldSkipAuthRefresh(url?: string): boolean {
+  if (!url) {
+    return false;
+  }
+
+  return [AUTH_PATHS.login, AUTH_PATHS.refresh, AUTH_PATHS.forgotPassword, AUTH_PATHS.resetPassword].some(
+    (path) => url.includes(path),
+  );
+}
+
+function processQueue(error: unknown, token: string | null = null): void {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error || !token) {
+      reject(error);
+      return;
+    }
+
+    resolve(token);
+  });
+
+  failedQueue = [];
+}
+
+function redirectToLogin(): void {
+  useAuthStore.getState().clear();
+
+  if (typeof window !== "undefined" && window.location.pathname !== ROUTES.LOGIN) {
+    const next = encodeURIComponent(window.location.pathname);
+    window.location.assign(`${ROUTES.LOGIN}?next=${next}`);
+  }
+}
 
 configureApiClientAuth({
   getAccessToken,
-  onUnauthorized: () => {
-    useAuthStore.getState().clear();
-
-    if (typeof window !== "undefined" && window.location.pathname !== ROUTES.LOGIN) {
-      window.location.assign(ROUTES.LOGIN);
-    }
-  },
-  refreshAccessToken: async () => {
-    if (!refreshPromise) {
-      refreshPromise = Promise.resolve(null).finally(() => {
-        refreshPromise = null;
-      });
-    }
-
-    return refreshPromise;
-  },
+  onUnauthorized: redirectToLogin,
+  refreshAccessToken: refreshSession,
 });
 
 apiClient.interceptors.request.use(attachAuthHeader);
@@ -48,18 +78,48 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const status = getHttpStatusFromError(error);
-    const originalRequest = error.config as InternalAxiosRequestConfig & {
-      _retry?: boolean;
-    };
+    const originalRequest = error.config as RetriableRequestConfig | undefined;
 
-    if (status === 401 && originalRequest && !originalRequest._retry) {
+    if (
+      status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !originalRequest._skipAuthRefresh &&
+      !shouldSkipAuthRefresh(originalRequest.url)
+    ) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({
+            resolve: (token: string) => {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              resolve(apiClient(originalRequest));
+            },
+            reject,
+          });
+        });
+      }
+
       originalRequest._retry = true;
+      isRefreshing = true;
 
-      const refreshed = await handleUnauthorizedError();
+      try {
+        const newToken = await refreshSession();
 
-      if (refreshed) {
+        if (!newToken) {
+          processQueue(error, null);
+          redirectToLogin();
+          return Promise.reject(parseApiError(error, "Your session has expired"));
+        }
+
+        processQueue(null, newToken);
         attachAuthHeader(originalRequest);
         return apiClient(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        redirectToLogin();
+        return Promise.reject(parseApiError(refreshError, "Your session has expired"));
+      } finally {
+        isRefreshing = false;
       }
     }
 
@@ -68,7 +128,21 @@ apiClient.interceptors.response.use(
     }
 
     if (status === 403) {
-      return Promise.reject(parseApiError(error, "You do not have permission to perform this action"));
+      return Promise.reject(
+        parseApiError(error, "You do not have permission to perform this action"),
+      );
+    }
+
+    if (status === 404) {
+      return Promise.reject(parseApiError(error, "The requested resource was not found"));
+    }
+
+    if (status === 422) {
+      return Promise.reject(parseApiError(error, "Please check your input and try again"));
+    }
+
+    if (status === 429) {
+      return Promise.reject(parseApiError(error, "Too many requests. Please try again later"));
     }
 
     if (status === 500) {

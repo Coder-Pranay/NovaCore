@@ -26,9 +26,13 @@ export function OfflineView() {
   }
 
   return (
-    <div className="fixed inset-x-0 top-0 z-50 border-b bg-background/95 backdrop-blur">
+    <div
+      role="status"
+      aria-live="assertive"
+      className="border-border bg-background/95 fixed inset-x-0 top-0 z-50 border-b backdrop-blur"
+    >
       <EmptyState
-        className="py-4"
+        className="py-3"
         title="You are offline"
         description="Some actions may be unavailable until your connection is restored."
         icon={WifiOffIcon}

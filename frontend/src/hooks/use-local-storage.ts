@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 export function useLocalStorage<T>(
   key: string,
@@ -23,16 +23,17 @@ export function useLocalStorage<T>(
 
   const setValue = useCallback(
     (value: T | ((previous: T) => T)) => {
-      const nextValue =
-        value instanceof Function ? value(storedValue) : value;
+      setStoredValue((previous) => {
+        const nextValue = value instanceof Function ? value(previous) : value;
 
-      setStoredValue(nextValue);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(key, JSON.stringify(nextValue));
+        }
 
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(key, JSON.stringify(nextValue));
-      }
+        return nextValue;
+      });
     },
-    [key, storedValue],
+    [key],
   );
 
   const removeValue = useCallback(() => {
@@ -42,10 +43,6 @@ export function useLocalStorage<T>(
       window.localStorage.removeItem(key);
     }
   }, [initialValue, key]);
-
-  useEffect(() => {
-    setStoredValue(readValue());
-  }, [readValue]);
 
   return [storedValue, setValue, removeValue];
 }

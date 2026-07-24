@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="NovaCore">
+  <rect width="512" height="512" fill="#0a0a0a"/>
+  <path d="M148 360V152h58l58 118 58-118h58v208h-52V236l-52 98h-28l-52-98v124H148z" fill="#ffffff"/>
+  <circle cx="392" cy="148" r="26" fill="#60a5fa"/>
+</svg>

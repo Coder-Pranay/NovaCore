@@ -1,16 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import {
+  AUTH_COOKIE_NAME,
   isGuestRoute,
   isPrivateRoute,
   isPublicRoute,
   ROUTES,
 } from "@/constants/routes";
 
-const AUTH_COOKIE = "novacore-authenticated";
-
 function hasAuthSession(request: NextRequest): boolean {
-  return request.cookies.has(AUTH_COOKIE);
+  return request.cookies.has(AUTH_COOKIE_NAME);
 }
 
 export function middleware(request: NextRequest) {
@@ -22,7 +21,7 @@ export function middleware(request: NextRequest) {
   }
 
   if (isGuestRoute(pathname) && isAuthenticated) {
-    return NextResponse.redirect(new URL(ROUTES.HOME, request.url));
+    return NextResponse.redirect(new URL(ROUTES.DASHBOARD, request.url));
   }
 
   if (isPrivateRoute(pathname) && !isAuthenticated) {

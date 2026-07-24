@@ -1,0 +1,12 @@
+export { WelcomeCardWidget } from "./welcome-card-widget";
+export { QuickActionsWidget } from "./quick-actions-widget";
+export { StatsOverviewWidget } from "./stats-overview-widget";
+export { RecentAssetsWidget } from "./recent-assets-widget";
+export { RecentSpacesWidget } from "./recent-spaces-widget";
+export { RecentActivityWidget } from "./recent-activity-widget";
+export { StorageUsageWidget } from "./storage-usage-widget";
+export { FileStatisticsWidget } from "./file-statistics-widget";
+export { UploadStatisticsWidget } from "./upload-statistics-widget";
+export { FavoritesSummaryWidget } from "./favorites-summary-widget";
+export { SharedFilesWidget } from "./shared-files-widget";
+export { PinnedItemsWidget } from "./pinned-items-widget";

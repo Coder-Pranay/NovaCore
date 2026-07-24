@@ -1,2 +1,1 @@
-/** Dashboard API service placeholder. */
-export const dashboardService = {} as const;
+export { dashboardService, DASHBOARD_PATHS } from "@/features/dashboard/api/dashboard-service";

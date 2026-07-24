@@ -2,81 +2,61 @@
 
 ## Overview
 
-NovaCore frontend is a Next.js App Router application using a feature-first scalable architecture. Shared infrastructure lives under `src/lib`, `src/providers`, `src/services`, and `src/components`. Feature-specific UI and hooks live under `src/features/{feature}`.
+NovaCore frontend is a Next.js App Router application using a feature-first architecture. Shared infrastructure lives under `src/lib`, `src/providers`, `src/services`, and `src/components`. Feature modules live under `src/features/{feature}`.
 
 ## Folder Structure
 
 ```
 src/
-  app/                 # Next.js routes and layouts
+  app/                 # Routes, layouts, loading/error UI, SEO (robots/sitemap/manifest)
   components/
     auth/              # Route protection
-    global/            # Error boundary, loaders, system views
-    layout/            # App shell wrappers
-    ui/                # Reusable design system components
+    global/            # Error boundary, loaders, offline, skeletons
+    layout/            # Skip-link shell
+    pwa/               # Service worker registration + install prompt
+    ui/                # Design system primitives
   constants/           # Routes, query keys, storage keys, app constants
-  features/            # Feature modules (dashboard, spaces, etc.)
+  features/            # Feature modules (auth, dashboard, spaces, search, …)
   hooks/               # Shared hooks
-  lib/                 # Query client and API client configuration
+  lib/                 # Query client and API client helpers
   providers/           # Global React providers
-  services/            # API service layer (Axios)
-  store/               # Zustand global stores
+  services/            # Shared API clients (prefer feature `api/` for new work)
+  store/               # Zustand stores
   styles/              # Global CSS and theme tokens
   types/               # Shared TypeScript types
-  utils/               # Pure helper functions
+  utils/               # Pure helpers
   middleware.ts        # Edge route protection
 ```
 
 ## Coding Standards
 
-1. **TypeScript strict mode** — no `any`; prefer explicit interfaces in `src/types`.
-2. **No inline styles** — use Tailwind utility classes and design tokens from `globals.css`.
-3. **No hardcoded URLs** — use `env.NEXT_PUBLIC_API_URL` and `ROUTES` constants.
-4. **No hardcoded copy in services** — user-facing strings belong in components or a future i18n layer.
-5. **Single Axios instance** — import `apiClient` from `@/services/api/client` only.
-6. **Server state in TanStack Query** — do not fetch in `useEffect` for API data.
-7. **Auth state in Zustand** — use `useAuth()` hook, not prop drilling.
-8. **Composition over inheritance** — small composable UI primitives.
-9. **Feature isolation** — feature components should not import from other features directly; share via `services` and `types`.
-10. **Accessibility** — labels, roles, keyboard support, focus management for dialogs/forms.
+1. **TypeScript strict** — no `any`; prefer explicit interfaces.
+2. **No hardcoded URLs** — use `env.NEXT_PUBLIC_API_URL`, `APP_URL`, and `ROUTES`.
+3. **Single Axios instance** — `apiClient` from `@/services/api/client`.
+4. **Server state in TanStack Query** — do not fetch API data in ad-hoc `useEffect`.
+5. **Auth in Zustand** — use `useAuth()`, not prop drilling.
+6. **Feature isolation** — share cross-feature contracts via `services`/`types`/`constants`.
+7. **Accessibility** — labels, roles, keyboard support, focus management for dialogs/menus.
+8. **Honest integrations** — do not invent backend APIs; use placeholders or local stores when the API is stubbed.
 
-## Adding a New Feature Module
+## Feature Status (honest mapping)
 
-Example: Dashboard (Sprint 9.x)
-
-1. Create `src/features/dashboard/components/`.
-2. Add API functions in `src/services/dashboard/` using `apiClient`.
-3. Define query keys in `src/constants/query-keys.ts`.
-4. Create hooks like `useDashboard()` with TanStack Query.
-5. Add route under `src/app/(private)/dashboard/page.tsx`.
-6. Register route in `PRIVATE_ROUTES` constant.
-7. Build UI using components from `@/components/ui`.
-
-## Authentication Flow (Future Sprint 9.2)
-
-1. Login form calls `authService.login`.
-2. On success, `useAuthStore.login(token, user)` persists session.
-3. Set `novacore-authenticated` cookie for middleware (Sprint 9.2).
-4. Axios interceptor attaches Bearer token automatically.
-5. On 401, refresh token handler runs (pluggable); fallback clears auth and redirects to `/login`.
+| Feature | Backend | Notes |
+|---------|---------|--------|
+| Auth / Profile | Real JWT + `/v1/users/me` | Avatar/sessions/2FA UI placeholders |
+| Spaces | Real CRUD | Client-side filter/pagination helpers |
+| Favorites | Real `favorite` flags | Pins may be local |
+| Sharing | Local store | Backend sharing is stub-only |
+| Notifications | Activity feed sync + local | No dedicated Notifications API |
+| Analytics | Derived from dashboard/assets/spaces | Soft 10 GB quota is client-side |
+| Search | Real `GET /v1/search` | Recent searches in localStorage |
+| AI Assistant | Integration UI only | No fake completions |
 
 ## Environment
 
-Copy `.env.example` to `.env.local`:
-
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8080/api
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-## Installed Libraries (Reserved)
-
-- **Recharts** — dashboard/analytics charts (Sprint 9+)
-- **TanStack Table** — data tables for assets/spaces lists
-- **React Dropzone** — file upload UI (Assets module)
-
-## Performance Guidelines
-
-- Use `dynamic()` for heavy client-only modules.
-- Prefer route-level code splitting via App Router segments.
-- Memoize expensive list items when rendering large collections.
-- Use TanStack Query caching instead of manual state duplication.
+See also: [Performance](./PERFORMANCE.md), [Accessibility](./ACCESSIBILITY.md), [Deployment](./DEPLOYMENT.md), [Developer Guide](./DEVELOPER_GUIDE.md).
