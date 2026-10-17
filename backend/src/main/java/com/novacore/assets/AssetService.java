@@ -19,6 +19,7 @@ import com.novacore.spaces.SpaceRepository;
 import com.novacore.spaces.exception.SpaceNotFoundException;
 import com.novacore.storage.ObjectStorageService;
 import com.novacore.storage.StorageKeyGenerator;
+import com.novacore.storage.StoredObject;
 import com.novacore.users.User;
 import com.novacore.users.UserRepository;
 import org.springframework.security.core.Authentication;
@@ -178,6 +179,35 @@ public class AssetService {
         UUID ownerId = requireAuthenticatedUserId();
         Asset asset = findOwnedAsset(assetId, ownerId);
         return assetMapper.toResponse(asset);
+    }
+
+    /**
+     * Opens the stored binary for an owned asset. Caller must close the stream.
+     */
+    @Transactional(readOnly = true)
+    public AssetContent openContent(UUID assetId) {
+        UUID ownerId = requireAuthenticatedUserId();
+        Asset asset = findOwnedAsset(assetId, ownerId);
+
+        if (asset.getStorageKey() == null || asset.getStorageKey().isBlank()) {
+            throw new AssetNotFoundException("No file is stored for this asset");
+        }
+
+        try {
+            StoredObject stored = objectStorageService.download(asset.getStorageKey());
+            String contentType = asset.getMimeType() != null && !asset.getMimeType().isBlank()
+                    ? asset.getMimeType()
+                    : stored.contentType();
+            String filename = asset.getOriginalFilename() != null && !asset.getOriginalFilename().isBlank()
+                    ? asset.getOriginalFilename()
+                    : asset.getName();
+            Long length = asset.getFileSize() != null ? asset.getFileSize() : stored.contentLength();
+            return new AssetContent(stored.inputStream(), contentType, length, filename);
+        } catch (com.novacore.storage.StorageObjectNotFoundException ex) {
+            throw new AssetNotFoundException("Stored file not found");
+        } catch (RuntimeException ex) {
+            throw new StorageUploadException("Failed to download file from storage", ex);
+        }
     }
 
     @Transactional

@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -30,6 +29,8 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
+
+import jakarta.servlet.http.Cookie;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -67,47 +68,47 @@ class AuthLogoutIntegrationTest {
 
     @Test
     @Transactional
-    void logout_success_revokesRefreshTokenInDatabase() throws Exception {
-        AuthTokens tokens = registerAndLogin("logout.ok@novacore.test", "logoutok", "Secret123!");
+    void logout_viaCookie_revokesRefreshTokenAndClearsCookies() throws Exception {
+        AuthSession session = registerAndLogin("logout.ok@novacore.test", "logoutok", "Secret123!");
 
-        LogoutRequest logoutRequest = new LogoutRequest();
-        logoutRequest.setRefreshToken(tokens.refreshToken());
-
-        mockMvc.perform(post("/v1/auth/logout")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokens.accessToken())
+        MvcResult logoutResult = mockMvc.perform(post("/v1/auth/logout")
+                        .cookie(session.accessCookie(), session.refreshCookie())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(logoutRequest)))
+                        .content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("Logged out successfully"));
+                .andExpect(jsonPath("$.message").value("Logged out successfully"))
+                .andReturn();
 
         RefreshToken stored = refreshTokenRepository.findAll().getFirst();
         assertThat(stored.isRevoked()).isTrue();
+        assertThat(AuthCookieTestHelper.hasClearedCookie(logoutResult, AuthCookieTestHelper.ACCESS)).isTrue();
+        assertThat(AuthCookieTestHelper.hasClearedCookie(logoutResult, AuthCookieTestHelper.REFRESH)).isTrue();
+        assertThat(AuthCookieTestHelper.hasClearedCookie(logoutResult, AuthCookieTestHelper.SESSION)).isTrue();
     }
 
     @Test
     @Transactional
     void logout_alreadyRevokedToken_returnsSuccess() throws Exception {
-        AuthTokens tokens = registerAndLogin("logout.revoked@novacore.test", "logoutrevoked", "Secret123!");
-
-        LogoutRequest logoutRequest = new LogoutRequest();
-        logoutRequest.setRefreshToken(tokens.refreshToken());
-
-        performLogout(tokens.accessToken(), logoutRequest);
-        performLogout(tokens.accessToken(), logoutRequest);
+        AuthSession session = registerAndLogin("logout.revoked@novacore.test", "logoutrevoked", "Secret123!");
+        performLogout(session);
+        performLogout(session);
     }
 
     @Test
     @Transactional
     void logout_unknownToken_returnsSuccessWithoutRevealingValidity() throws Exception {
-        AuthTokens tokens = registerAndLogin("logout.unknown@novacore.test", "logoutunknown", "Secret123!");
+        AuthSession session = registerAndLogin("logout.unknown@novacore.test", "logoutunknown", "Secret123!");
 
-        String unknownRefreshToken = jwtService.generateRefreshToken(tokens.userId(), "logoutunknown");
-
+        String unknownRefreshToken = jwtService.generateRefreshToken(session.userId(), "logoutunknown");
         LogoutRequest logoutRequest = new LogoutRequest();
         logoutRequest.setRefreshToken(unknownRefreshToken);
 
-        performLogout(tokens.accessToken(), logoutRequest);
+        mockMvc.perform(post("/v1/auth/logout")
+                        .cookie(session.accessCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(logoutRequest)))
+                .andExpect(status().isOk());
 
         RefreshToken stored = refreshTokenRepository.findAll().getFirst();
         assertThat(stored.isRevoked()).isFalse();
@@ -116,58 +117,55 @@ class AuthLogoutIntegrationTest {
     @Test
     @Transactional
     void logout_expiredRefreshJwt_returnsSuccess() throws Exception {
-        AuthTokens tokens = registerAndLogin("logout.expired@novacore.test", "logoutexpired", "Secret123!");
+        AuthSession session = registerAndLogin("logout.expired@novacore.test", "logoutexpired", "Secret123!");
 
-        String expiredRefreshToken = buildExpiredRefreshToken(tokens.userId(), "logoutexpired");
-
+        String expiredRefreshToken = buildExpiredRefreshToken(session.userId(), "logoutexpired");
         LogoutRequest logoutRequest = new LogoutRequest();
         logoutRequest.setRefreshToken(expiredRefreshToken);
 
-        performLogout(tokens.accessToken(), logoutRequest);
+        mockMvc.perform(post("/v1/auth/logout")
+                        .cookie(session.accessCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(logoutRequest)))
+                .andExpect(status().isOk());
 
         RefreshToken stored = refreshTokenRepository.findAll().getFirst();
         assertThat(stored.isRevoked()).isFalse();
     }
 
     @Test
-    void logout_withoutAuthentication_returns401() throws Exception {
-        LogoutRequest logoutRequest = new LogoutRequest();
-        logoutRequest.setRefreshToken("any.refresh.token");
-
+    void logout_withoutCookies_stillReturnsSuccess() throws Exception {
         mockMvc.perform(post("/v1/auth/logout")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(logoutRequest)))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value("Unauthorized"));
-    }
-
-    @Test
-    @Transactional
-    void logout_idempotent_repeatedRequestsAlwaysReturnSuccess() throws Exception {
-        AuthTokens tokens = registerAndLogin("logout.repeat@novacore.test", "logoutrepeat", "Secret123!");
-
-        LogoutRequest logoutRequest = new LogoutRequest();
-        logoutRequest.setRefreshToken(tokens.refreshToken());
-
-        performLogout(tokens.accessToken(), logoutRequest);
-        performLogout(tokens.accessToken(), logoutRequest);
-        performLogout(tokens.accessToken(), logoutRequest);
-
-        assertThat(refreshTokenRepository.findAll().getFirst().isRevoked()).isTrue();
-    }
-
-    private void performLogout(String accessToken, LogoutRequest logoutRequest) throws Exception {
-        mockMvc.perform(post("/v1/auth/logout")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(logoutRequest)))
+                        .content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Logged out successfully"));
     }
 
-    private AuthTokens registerAndLogin(String email, String username, String password) throws Exception {
+    @Test
+    @Transactional
+    void logout_idempotent_repeatedRequestsAlwaysReturnSuccess() throws Exception {
+        AuthSession session = registerAndLogin("logout.repeat@novacore.test", "logoutrepeat", "Secret123!");
+
+        performLogout(session);
+        performLogout(session);
+        performLogout(session);
+
+        assertThat(refreshTokenRepository.findAll().getFirst().isRevoked()).isTrue();
+    }
+
+    private void performLogout(AuthSession session) throws Exception {
+        mockMvc.perform(post("/v1/auth/logout")
+                        .cookie(session.accessCookie(), session.refreshCookie())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Logged out successfully"));
+    }
+
+    private AuthSession registerAndLogin(String email, String username, String password) throws Exception {
         RegisterRequest registerRequest = new RegisterRequest();
         registerRequest.setEmail(email);
         registerRequest.setUsername(username);
@@ -193,9 +191,9 @@ class AuthLogoutIntegrationTest {
         JsonNode data = objectMapper.readTree(loginResult.getResponse().getContentAsString()).get("data");
         UUID userId = UUID.fromString(data.get("user").get("id").asText());
 
-        return new AuthTokens(
-                data.get("accessToken").asText(),
-                data.get("refreshToken").asText(),
+        return new AuthSession(
+                AuthCookieTestHelper.accessCookie(loginResult),
+                AuthCookieTestHelper.refreshCookie(loginResult),
                 userId);
     }
 
@@ -217,6 +215,6 @@ class AuthLogoutIntegrationTest {
                 .compact();
     }
 
-    private record AuthTokens(String accessToken, String refreshToken, UUID userId) {
+    private record AuthSession(Cookie accessCookie, Cookie refreshCookie, UUID userId) {
     }
 }

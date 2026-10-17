@@ -3,6 +3,62 @@ spring:
     activate:
       on-profile: prod
 
+  datasource:
+    url: jdbc:postgresql://${NOVACORE_DB_HOST}:${NOVACORE_DB_PORT:5432}/${NOVACORE_DB_NAME}
+    username: ${NOVACORE_DB_USER}
+    password: ${NOVACORE_DB_PASSWORD}
+    hikari:
+      pool-name: NovaCoreHikariPool
+      maximum-pool-size: 20
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  mail:
+    host: ${NOVACORE_MAIL_HOST}
+    port: ${NOVACORE_MAIL_PORT:587}
+    username: ${NOVACORE_MAIL_USERNAME:}
+    password: ${NOVACORE_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${NOVACORE_MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${NOVACORE_MAIL_SMTP_STARTTLS:true}
+
+  data:
+    redis:
+      host: ${NOVACORE_REDIS_HOST}
+      port: ${NOVACORE_REDIS_PORT:6379}
+      password: ${NOVACORE_REDIS_PASSWORD:}
+      timeout: 2s
+
+management:
+  endpoint:
+    health:
+      show-details: when_authorized
+  health:
+    mail:
+      enabled: ${NOVACORE_MAIL_HEALTH_ENABLED:false}
+
+novacore:
+  auth:
+    cookie:
+      secure: true
+      same-site: Lax
+
 logging:
   level:
     root: WARN

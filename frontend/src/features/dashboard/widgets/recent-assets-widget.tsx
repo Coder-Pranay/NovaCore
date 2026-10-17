@@ -1,11 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { FileIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ROUTES } from "@/constants";
 import { WidgetShell } from "@/features/dashboard/components/widget-shell";
 import { useRecentAssets } from "@/features/dashboard/hooks";
+import { cn } from "@/utils";
 import { formatRelativeTime } from "@/utils/date";
 import { formatFileSize } from "@/utils/file-size";
 import { getErrorMessage } from "@/utils";
@@ -26,12 +30,12 @@ export function RecentAssetsWidget() {
       errorMessage={getErrorMessage(query.error)}
       onRetry={() => void query.refetch()}
       action={
-        <span
-          className="border-border text-muted-foreground inline-flex h-7 items-center rounded-lg border px-2.5 text-[0.8rem] font-medium opacity-70"
-          title="Assets page coming soon"
+        <Link
+          href={ROUTES.ASSETS}
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
         >
-          Coming soon
-        </span>
+          View all
+        </Link>
       }
       skeleton={
         <div className="space-y-3">

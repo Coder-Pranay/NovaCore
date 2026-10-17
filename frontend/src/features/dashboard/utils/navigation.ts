@@ -9,7 +9,6 @@ import {
   SettingsIcon,
   Share2Icon,
   FilesIcon,
-  SparklesIcon,
 } from "lucide-react";
 
 import { ROUTES } from "@/constants";
@@ -45,8 +44,6 @@ export const PRIMARY_NAV: NavItem[] = [
     href: ROUTES.ASSETS,
     icon: FilesIcon,
     permissions: ["assets:read"],
-    // Page exists as Coming Soon only — keep badge; do not treat as full feature.
-    comingSoon: true,
   },
   {
     id: "favorites",
@@ -81,13 +78,6 @@ export const PRIMARY_NAV: NavItem[] = [
     label: "Storage",
     href: ROUTES.ANALYTICS,
     icon: HardDriveIcon,
-    permissions: ["dashboard:read"],
-  },
-  {
-    id: "ai",
-    label: "Assistant",
-    href: ROUTES.AI,
-    icon: SparklesIcon,
     permissions: ["dashboard:read"],
   },
   {

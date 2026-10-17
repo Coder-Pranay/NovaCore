@@ -7,5 +7,8 @@ public enum ActionType {
     UPLOADED,
     RESTORED,
     FAVORITED,
-    UNFAVORITED
+    UNFAVORITED,
+    PASSWORD_CHANGED,
+    EMAIL_VERIFIED,
+    PASSWORD_RESET
 }

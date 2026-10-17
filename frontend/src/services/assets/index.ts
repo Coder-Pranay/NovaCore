@@ -1,2 +1,1 @@
-/** Assets API service placeholder. */
-export const assetsService = {} as const;
+export { assetService, ASSET_PATHS } from "@/features/assets/api/asset-service";

@@ -53,6 +53,23 @@ export interface ShareInvitePayload {
 export interface CreatePublicLinkPayload {
   expiresAt?: string | null;
   passwordProtected?: boolean;
+  /** Sent once at create time; never stored in the browser after submit. */
+  password?: string | null;
+}
+
+export interface PublicLinkPreview {
+  token: string;
+  resourceType: ShareResourceType;
+  resourceName: string;
+  passwordRequired: boolean;
+  expiresAt: string | null;
+}
+
+export interface PublicLinkAccess {
+  resourceType: ShareResourceType;
+  resourceId: string;
+  resourceName: string;
+  description: string | null;
 }
 
 export interface UpdatePermissionPayload {

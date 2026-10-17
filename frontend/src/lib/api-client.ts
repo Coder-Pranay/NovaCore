@@ -1,35 +1,25 @@
 import type { AxiosError, InternalAxiosRequestConfig } from "axios";
 import type { ErrorResponse } from "@/types";
 
-export type TokenGetter = () => string | null;
-
 export type UnauthorizedHandler = () => void;
 
-export type RefreshTokenHandler = () => Promise<string | null>;
+export type RefreshSessionHandler = () => Promise<boolean>;
 
 export interface ApiClientAuthHandlers {
-  getAccessToken: TokenGetter;
   onUnauthorized?: UnauthorizedHandler;
-  refreshAccessToken?: RefreshTokenHandler;
+  refreshAccessToken?: RefreshSessionHandler;
 }
 
-let authHandlers: ApiClientAuthHandlers = {
-  getAccessToken: () => null,
-};
+let authHandlers: ApiClientAuthHandlers = {};
 
 export function configureApiClientAuth(handlers: ApiClientAuthHandlers): void {
   authHandlers = { ...authHandlers, ...handlers };
 }
 
+/** Cookies carry auth; no Authorization header is attached from JS. */
 export function attachAuthHeader(
   config: InternalAxiosRequestConfig,
 ): InternalAxiosRequestConfig {
-  const token = authHandlers.getAccessToken();
-
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
   return config;
 }
 
@@ -39,9 +29,9 @@ export async function handleUnauthorizedError(): Promise<boolean> {
     return false;
   }
 
-  const newToken = await authHandlers.refreshAccessToken();
+  const refreshed = await authHandlers.refreshAccessToken();
 
-  if (!newToken) {
+  if (!refreshed) {
     authHandlers.onUnauthorized?.();
     return false;
   }

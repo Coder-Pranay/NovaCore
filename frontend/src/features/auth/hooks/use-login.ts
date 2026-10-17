@@ -32,8 +32,6 @@ export function useLogin() {
     },
     onSuccess: (response) => {
       setSession({
-        accessToken: response.accessToken,
-        refreshToken: response.refreshToken,
         user: response.user,
         rememberMe: response.rememberMe,
       });

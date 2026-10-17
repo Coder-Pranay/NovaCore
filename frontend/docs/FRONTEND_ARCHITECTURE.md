@@ -43,10 +43,9 @@ src/
 
 | Feature | Backend | Notes |
 |---------|---------|--------|
-| Auth / Profile | Real JWT + `/v1/users/me` | Avatar/sessions/2FA UI placeholders |
+| Auth / Profile | HttpOnly cookie JWT + `/v1/users/me` | No localStorage tokens; avatar/2FA UI placeholders |
 | Spaces | Real CRUD | Client-side filter/pagination helpers |
 | Favorites | Real `favorite` flags | Pins may be local |
-| Sharing | Local store | Backend sharing is stub-only |
 | Notifications | Activity feed sync + local | No dedicated Notifications API |
 | Analytics | Derived from dashboard/assets/spaces | Soft 10 GB quota is client-side |
 | Search | Real `GET /v1/search` | Recent searches in localStorage |

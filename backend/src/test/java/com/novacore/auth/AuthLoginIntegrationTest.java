@@ -1,6 +1,5 @@
 package com.novacore.auth;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.novacore.auth.dto.LoginRequest;
 import com.novacore.auth.dto.RegisterRequest;
@@ -18,8 +17,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.servlet.http.Cookie;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -52,7 +54,7 @@ class AuthLoginIntegrationTest {
 
     @Test
     @Transactional
-    void login_success_returnsTokensAndPersistsOnlyHash() throws Exception {
+    void login_success_setsHttpOnlyCookiesAndPersistsOnlyHash() throws Exception {
         registerUser("login.ok@novacore.test", "loginok", "Secret123!");
 
         LoginRequest loginRequest = new LoginRequest();
@@ -64,32 +66,36 @@ class AuthLoginIntegrationTest {
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty())
-                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.data.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
+                .andExpect(jsonPath("$.data.tokenType").value("Cookie"))
                 .andExpect(jsonPath("$.data.expiresIn").isNumber())
                 .andExpect(jsonPath("$.data.user.email").value("login.ok@novacore.test"))
                 .andExpect(jsonPath("$.data.user.username").value("loginok"))
                 .andExpect(jsonPath("$.data.user.roles[0]").value("USER"))
                 .andExpect(jsonPath("$.data.passwordHash").doesNotExist())
-                .andExpect(jsonPath("$.data.tokenHash").doesNotExist())
                 .andExpect(jsonPath("$.data.user.passwordHash").doesNotExist())
                 .andReturn();
 
-        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).get("data");
-        String plainRefresh = data.get("refreshToken").asText();
-        String accessToken = data.get("accessToken").asText();
+        String access = AuthCookieTestHelper.requireCookieValue(result, AuthCookieTestHelper.ACCESS);
+        String refresh = AuthCookieTestHelper.requireCookieValue(result, AuthCookieTestHelper.REFRESH);
+        AuthCookieTestHelper.requireCookieValue(result, AuthCookieTestHelper.SESSION);
 
+        assertThat(result.getResponse().getContentAsString()).doesNotContain(access);
+        assertThat(result.getResponse().getContentAsString()).doesNotContain(refresh);
         assertThat(result.getResponse().getContentAsString()).doesNotContain("Secret123!");
         assertThat(refreshTokenRepository.findAll()).hasSize(1);
 
         var stored = refreshTokenRepository.findAll().getFirst();
-        assertThat(stored.getTokenHash()).isEqualTo(refreshTokenService.hashToken(plainRefresh));
-        assertThat(stored.getTokenHash()).isNotEqualTo(plainRefresh);
+        assertThat(stored.getTokenHash()).isEqualTo(refreshTokenService.hashToken(refresh));
+        assertThat(stored.getTokenHash()).isNotEqualTo(refresh);
         assertThat(stored.getTokenHash()).hasSize(64);
         assertThat(stored.isRevoked()).isFalse();
+        assertThat(access.split("\\.")).hasSize(3);
 
-        assertThat(accessToken.split("\\.")).hasSize(3);
+        mockMvc.perform(get("/v1/users/me").cookie(new Cookie(AuthCookieTestHelper.ACCESS, access)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("loginok"));
     }
 
     @Test

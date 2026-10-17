@@ -1,6 +1,10 @@
+import { apiClient } from "@/services/api/client";
+import type { ApiResponse } from "@/types";
 import type {
   CreatePublicLinkPayload,
   PublicLink,
+  PublicLinkAccess,
+  PublicLinkPreview,
   ShareInvitePayload,
   ShareResource,
   SharedAccess,
@@ -14,20 +18,61 @@ import {
 } from "@/features/sharing/api/sharing-store";
 import {
   buildPublicLinkUrl,
-  createPublicToken,
   createShareId,
   filterSharedItems,
-  isShareExpired,
 } from "@/features/sharing/utils";
+
+const PUBLIC_LINK_PATHS = {
+  root: "/v1/public-links",
+  resource: "/v1/public-links/resource",
+  byId: (id: string) => `/v1/public-links/${id}`,
+  preview: (token: string) => `/v1/public-links/open/${encodeURIComponent(token)}`,
+  access: (token: string) => `/v1/public-links/open/${encodeURIComponent(token)}`,
+} as const;
 
 function nowIso(): string {
   return new Date().toISOString();
 }
 
+function toExpiresAtIso(value?: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (trimmed.includes("T")) {
+    return trimmed;
+  }
+  return `${trimmed}T23:59:59.000Z`;
+}
+
+function mapPublicLink(data: PublicLink): PublicLink {
+  return {
+    ...data,
+    url: data.url?.startsWith("http")
+      ? data.url
+      : buildPublicLinkUrl(data.token),
+    expiresAt: data.expiresAt ?? null,
+  };
+}
+
 export const sharingService = {
   async getSharedItems(params: SharedListParams = {}): Promise<SharedListResult> {
     const store = readSharingStore();
-    return filterSharedItems(store.shares, store.publicLinks, params);
+    let publicLinks = store.publicLinks;
+
+    try {
+      const response = await apiClient.get<ApiResponse<PublicLink[]>>(
+        PUBLIC_LINK_PATHS.root,
+      );
+      publicLinks = (response.data.data ?? []).map(mapPublicLink);
+    } catch {
+      // Invites remain local; public links fall back to last known local cache.
+    }
+
+    return filterSharedItems(store.shares, publicLinks, params);
   },
 
   async getSharedUsers(resource: ShareResource): Promise<SharedAccess[]> {
@@ -169,20 +214,22 @@ export const sharingService = {
     resource: ShareResource,
     payload: CreatePublicLinkPayload = {},
   ): Promise<PublicLink> {
-    const token = createPublicToken();
-    const link: PublicLink = {
-      id: createShareId(),
+    const body = {
       resourceType: resource.resourceType,
       resourceId: resource.resourceId,
       resourceName: resource.resourceName,
-      token,
-      url: buildPublicLinkUrl(token),
-      enabled: true,
-      expiresAt: payload.expiresAt || null,
+      expiresAt: toExpiresAtIso(payload.expiresAt),
       passwordProtected: Boolean(payload.passwordProtected),
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
+      password: payload.passwordProtected
+        ? (payload.password ?? undefined)
+        : undefined,
     };
+
+    const response = await apiClient.post<ApiResponse<PublicLink>>(
+      PUBLIC_LINK_PATHS.root,
+      body,
+    );
+    const link = mapPublicLink(response.data.data);
 
     updateSharingStore((current) => {
       const others = current.publicLinks.filter(
@@ -199,47 +246,57 @@ export const sharingService = {
   },
 
   async disablePublicLink(linkId: string): Promise<PublicLink> {
-    let disabled: PublicLink | null = null;
+    const response = await apiClient.delete<ApiResponse<PublicLink>>(
+      PUBLIC_LINK_PATHS.byId(linkId),
+    );
+    const disabled = mapPublicLink(response.data.data);
 
     updateSharingStore((current) => {
-      const publicLinks = current.publicLinks.map((link) => {
-        if (link.id !== linkId) {
-          return link;
-        }
-        disabled = {
-          ...link,
-          enabled: false,
-          updatedAt: nowIso(),
-        };
-        return disabled;
-      });
+      const publicLinks = current.publicLinks.map((link) =>
+        link.id === linkId ? disabled : link,
+      );
       return { ...current, publicLinks };
     });
 
-    if (!disabled) {
-      throw new Error("Public link not found.");
-    }
     return disabled;
   },
 
   async getPublicLink(resource: ShareResource): Promise<PublicLink | null> {
-    const store = readSharingStore();
-    const link =
-      store.publicLinks.find(
-        (item) =>
-          item.resourceType === resource.resourceType &&
-          item.resourceId === resource.resourceId,
-      ) ?? null;
+    const response = await apiClient.get<ApiResponse<PublicLink | null>>(
+      PUBLIC_LINK_PATHS.resource,
+      {
+        params: {
+          resourceType: resource.resourceType,
+          resourceId: resource.resourceId,
+        },
+      },
+    );
 
-    if (!link) {
+    const data = response.data.data;
+    if (!data) {
       return null;
     }
+    return mapPublicLink(data);
+  },
 
-    if (isShareExpired(link) && link.enabled) {
-      return this.disablePublicLink(link.id);
-    }
+  async previewPublicLink(token: string): Promise<PublicLinkPreview> {
+    const response = await apiClient.get<ApiResponse<PublicLinkPreview>>(
+      PUBLIC_LINK_PATHS.preview(token),
+      { _skipAuthRefresh: true } as never,
+    );
+    return response.data.data;
+  },
 
-    return link;
+  async accessPublicLink(
+    token: string,
+    password?: string,
+  ): Promise<PublicLinkAccess> {
+    const response = await apiClient.post<ApiResponse<PublicLinkAccess>>(
+      PUBLIC_LINK_PATHS.access(token),
+      { password: password ?? "" },
+      { _skipAuthRefresh: true } as never,
+    );
+    return response.data.data;
   },
 
   async copyLink(url: string): Promise<void> {

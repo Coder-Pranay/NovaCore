@@ -1,5 +1,6 @@
 package com.novacore.security.filter;
 
+import com.novacore.security.auth.AuthCookieService;
 import com.novacore.security.jwt.JwtClaims;
 import com.novacore.security.jwt.JwtException;
 import com.novacore.security.jwt.JwtService;
@@ -18,15 +19,21 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * Authenticates requests from the HttpOnly access cookie (preferred) or Authorization Bearer header
+ * (kept for non-browser API clients / tests).
+ */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtService jwtService;
+    private final AuthCookieService authCookieService;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService, AuthCookieService authCookieService) {
         this.jwtService = jwtService;
+        this.authCookieService = authCookieService;
     }
 
     @Override
@@ -34,14 +41,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
-        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
-
-        if (authorization != null && authorization.startsWith(BEARER_PREFIX)) {
-            String token = authorization.substring(BEARER_PREFIX.length()).trim();
+        String token = resolveAccessToken(request);
+        if (token != null) {
             authenticateAccessToken(token);
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private String resolveAccessToken(HttpServletRequest request) {
+        return authCookieService.readAccessToken(request)
+                .or(() -> {
+                    String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+                    if (authorization != null && authorization.startsWith(BEARER_PREFIX)) {
+                        String bearer = authorization.substring(BEARER_PREFIX.length()).trim();
+                        if (!bearer.isBlank()) {
+                            return java.util.Optional.of(bearer);
+                        }
+                    }
+                    return java.util.Optional.empty();
+                })
+                .orElse(null);
     }
 
     private void authenticateAccessToken(String token) {

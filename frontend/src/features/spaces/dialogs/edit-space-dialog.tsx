@@ -65,7 +65,9 @@ export function EditSpaceDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit space</DialogTitle>
-          <DialogDescription>Update space details and appearance.</DialogDescription>
+          <DialogDescription>
+            Update the name, description, and appearance.
+          </DialogDescription>
         </DialogHeader>
 
         <form
@@ -82,7 +84,8 @@ export function EditSpaceDialog({
                 description: values.description || null,
                 icon: values.icon || null,
                 color: values.color || null,
-                type: values.type,
+                // Preserve existing type; type is not editable in the UI.
+                type: values.type || space.type,
                 favorite: space.favorite,
                 displayOrder: space.displayOrder,
               },
@@ -96,7 +99,6 @@ export function EditSpaceDialog({
             errors={form.formState.errors as never}
             setValue={form.setValue as never}
             watch={form.watch as never}
-            showSlug={false}
             disabled={isLoading}
           />
 

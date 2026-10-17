@@ -1,2 +1,2 @@
-export { useAuthStore, getAccessToken, getAuthUser, isAuthenticated } from "./auth-store";
+export { useAuthStore, getAuthUser, isAuthenticated } from "./auth-store";
 export { useUiStore } from "./ui-store";

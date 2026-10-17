@@ -19,9 +19,10 @@ docker compose -f docker/docker-compose.yml up -d
 | Service    | Port  | Credentials              |
 |------------|-------|--------------------------|
 | PostgreSQL | 5432  | `novacore` / `novacore`  |
-| Redis      | 6379  | (no password)            |
+| Redis      | 6380  | (no password)            |
 | MinIO      | 9000  | `minioadmin` / `minioadmin` |
 | MinIO UI   | 9001  | same as above            |
+| MailHog    | 1025  | SMTP capture (UI: 8025)  |
 
 ## Run locally
 
@@ -42,7 +43,11 @@ Copy environment defaults:
 cp .env.example .env
 ```
 
+Spring Boot loads `backend/.env` automatically when you run from the `backend/` directory.
+
 Connection settings are driven by `NOVACORE_*` environment variables (see `.env.example`).
+
+For production deployment, use `backend/.env.production.example` as a template for your secrets manager.
 
 ## Module packages
 
@@ -50,14 +55,14 @@ Connection settings are driven by `NOVACORE_*` environment variables (see `.env.
 |---------|----------------|
 | `config` | Application and infrastructure configuration |
 | `common` | Shared utilities and base types |
-| `security` | Security primitives |
-| `auth` | Authentication |
+| `security` | Security primitives + HttpOnly auth cookies |
+| `auth` | Login/register/refresh/logout with HttpOnly cookie JWTs |
 | `users` | User profiles and accounts |
 | `spaces` | Life Spaces |
 | `assets` | Digital assets |
 | `storage` | File storage orchestration |
 | `search` | Universal search |
-| `sharing` | Sharing and permissions |
+| `sharing` | Public links with BCrypt password protection; invite APIs TBD |
 | `notifications` | Reminders and alerts |
 | `activity` | Activity feed |
 | `settings` | User settings |

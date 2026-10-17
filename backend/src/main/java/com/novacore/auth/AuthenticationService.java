@@ -1,9 +1,11 @@
 package com.novacore.auth;
 
+import com.novacore.activity.ActionType;
+import com.novacore.activity.ActivityLogService;
+import com.novacore.activity.EntityType;
+import com.novacore.auth.dto.ChangePasswordRequest;
 import com.novacore.auth.dto.LoginRequest;
 import com.novacore.auth.dto.LoginResponse;
-import com.novacore.auth.dto.LogoutRequest;
-import com.novacore.auth.dto.RefreshTokenRequest;
 import com.novacore.auth.dto.RefreshTokenResponse;
 import com.novacore.auth.dto.RegisterRequest;
 import com.novacore.auth.dto.RegisterResponse;
@@ -28,17 +30,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 /**
- * Authentication business operations.
+ * Authentication business operations. JWTs are issued for HttpOnly cookies — never for localStorage.
  */
 @Service
 public class AuthenticationService {
 
     private static final String GENERIC_AUTH_FAILURE = "Invalid credentials";
     private static final String GENERIC_REFRESH_FAILURE = "Invalid refresh token";
-    private static final String TOKEN_TYPE_BEARER = "Bearer";
+    private static final String TOKEN_TYPE_COOKIE = "Cookie";
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -47,6 +50,9 @@ public class AuthenticationService {
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
     private final RefreshTokenService refreshTokenService;
+    private final AuthProperties authProperties;
+    private final EmailVerificationService emailVerificationService;
+    private final ActivityLogService activityLogService;
 
     public AuthenticationService(
             UserRepository userRepository,
@@ -55,7 +61,10 @@ public class AuthenticationService {
             UserMapper userMapper,
             JwtService jwtService,
             JwtProperties jwtProperties,
-            RefreshTokenService refreshTokenService) {
+            RefreshTokenService refreshTokenService,
+            AuthProperties authProperties,
+            EmailVerificationService emailVerificationService,
+            ActivityLogService activityLogService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordService = passwordService;
@@ -63,6 +72,9 @@ public class AuthenticationService {
         this.jwtService = jwtService;
         this.jwtProperties = jwtProperties;
         this.refreshTokenService = refreshTokenService;
+        this.authProperties = authProperties;
+        this.emailVerificationService = emailVerificationService;
+        this.activityLogService = activityLogService;
     }
 
     @Transactional
@@ -82,20 +94,23 @@ public class AuthenticationService {
 
         User user = userMapper.toEntity(request);
         user.setPasswordHash(passwordService.hashPassword(request.getPassword()));
+        user.setEmailVerified(false);
         user.getRoles().add(defaultRole);
 
         User saved = userRepository.save(user);
+        emailVerificationService.sendVerificationEmail(saved);
         return userMapper.toRegisterResponse(saved);
     }
 
     @Transactional
-    public LoginResponse authenticate(LoginRequest request) {
+    public LoginResult authenticate(LoginRequest request, ClientDeviceInfo deviceInfo) {
         String login = request.getEmailOrUsername().trim();
 
         User user = userRepository.findByEmailOrUsernameWithRoles(login)
                 .orElseThrow(() -> new AuthenticationFailedException(GENERIC_AUTH_FAILURE));
 
         ensureAccountActive(user);
+        ensureEmailVerifiedIfRequired(user);
 
         if (!passwordService.matches(request.getPassword(), user.getPasswordHash())) {
             throw new AuthenticationFailedException(GENERIC_AUTH_FAILURE);
@@ -103,24 +118,31 @@ public class AuthenticationService {
 
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername());
         String refreshToken = refreshTokenService.generateRefreshToken(user.getId(), user.getUsername());
-        refreshTokenService.persistRefreshToken(user, refreshToken);
+        refreshTokenService.persistRefreshToken(user, refreshToken, deviceInfo);
 
         LoginResponse response = new LoginResponse();
-        response.setAccessToken(accessToken);
-        response.setRefreshToken(refreshToken);
-        response.setTokenType(TOKEN_TYPE_BEARER);
+        response.setTokenType(TOKEN_TYPE_COOKIE);
         response.setExpiresIn(jwtProperties.getAccessTokenExpiration().toSeconds());
         response.setUser(userMapper.toAuthenticatedUserResponse(user));
-        return response;
+
+        return new LoginResult(
+                response,
+                new AuthSessionTokens(
+                        accessToken,
+                        refreshToken,
+                        jwtProperties.getAccessTokenExpiration().toSeconds()));
     }
 
     @Transactional
-    public RefreshTokenResponse refresh(RefreshTokenRequest request) {
-        String plainRefreshToken = request.getRefreshToken().trim();
+    public RefreshResult refresh(String plainRefreshToken, ClientDeviceInfo deviceInfo) {
+        if (plainRefreshToken == null || plainRefreshToken.isBlank()) {
+            throw new AuthenticationFailedException(GENERIC_REFRESH_FAILURE);
+        }
 
-        JwtClaims claims = parseRefreshClaims(plainRefreshToken);
+        String trimmed = plainRefreshToken.trim();
+        JwtClaims claims = parseRefreshClaims(trimmed);
 
-        RefreshToken storedToken = refreshTokenService.findByPlainToken(plainRefreshToken)
+        RefreshToken storedToken = refreshTokenService.findByPlainToken(trimmed)
                 .orElseThrow(() -> new AuthenticationFailedException(GENERIC_REFRESH_FAILURE));
 
         if (storedToken.isRevoked() || storedToken.getExpiresAt().isBefore(Instant.now())) {
@@ -134,34 +156,117 @@ public class AuthenticationService {
             throw new AuthenticationFailedException(GENERIC_REFRESH_FAILURE);
         }
 
+        ClientDeviceInfo nextDevice = deviceInfo;
+        if (nextDevice == null || "Unknown".equals(nextDevice.userAgent())) {
+            nextDevice = new ClientDeviceInfo(
+                    storedToken.getUserAgent() != null ? storedToken.getUserAgent() : "Unknown",
+                    storedToken.getIpAddress() != null ? storedToken.getIpAddress() : "unknown");
+        }
+
         refreshTokenService.revoke(storedToken);
 
         String newAccessToken = jwtService.generateAccessToken(user.getId(), user.getUsername());
         String newRefreshToken = refreshTokenService.generateRefreshToken(user.getId(), user.getUsername());
-        refreshTokenService.persistRefreshToken(user, newRefreshToken);
+        refreshTokenService.persistRefreshToken(user, newRefreshToken, nextDevice);
 
         RefreshTokenResponse response = new RefreshTokenResponse();
-        response.setAccessToken(newAccessToken);
-        response.setRefreshToken(newRefreshToken);
-        response.setTokenType(TOKEN_TYPE_BEARER);
+        response.setTokenType(TOKEN_TYPE_COOKIE);
         response.setExpiresIn(jwtProperties.getAccessTokenExpiration().toSeconds());
-        return response;
+
+        return new RefreshResult(
+                response,
+                new AuthSessionTokens(
+                        newAccessToken,
+                        newRefreshToken,
+                        jwtProperties.getAccessTokenExpiration().toSeconds()));
     }
 
     /**
-     * Idempotent logout: revokes the refresh token when valid and owned by the caller.
-     * Always completes without revealing token existence or validity.
+     * Idempotent logout: revokes the refresh token when valid.
+     * Prefer cookie-sourced refresh tokens; always completes without revealing validity.
      */
     @Transactional
-    public void logout(LogoutRequest request) {
+    public void logout(String plainRefreshToken) {
+        UUID userId = resolveUserIdForLogout(plainRefreshToken);
+        if (userId == null || plainRefreshToken == null || plainRefreshToken.isBlank()) {
+            return;
+        }
+        revokeRefreshTokenSilently(userId, plainRefreshToken.trim());
+    }
+
+    @Transactional
+    public void changePassword(ChangePasswordRequest request, String currentPlainRefreshToken) {
         UUID userId = requireAuthenticatedUserId();
-        revokeRefreshTokenSilently(userId, request.getRefreshToken().trim());
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AuthenticationFailedException("Unauthorized"));
+
+        if (!passwordService.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            throw new AuthenticationFailedException("Current password is incorrect");
+        }
+
+        PasswordPolicy.validate(request.getNewPassword());
+        if (passwordService.matches(request.getNewPassword(), user.getPasswordHash())) {
+            throw new IllegalArgumentException("New password must be different from current password");
+        }
+
+        user.setPasswordHash(passwordService.hashPassword(request.getNewPassword()));
+        user.setUpdatedAt(Instant.now());
+        userRepository.save(user);
+
+        if (currentPlainRefreshToken != null && !currentPlainRefreshToken.isBlank()) {
+            String keepHash = refreshTokenService.hashToken(currentPlainRefreshToken.trim());
+            refreshTokenService.revokeAllForUserExcept(userId, keepHash);
+        } else {
+            refreshTokenService.revokeAllForUser(userId);
+        }
+
+        activityLogService.logActivity(
+                userId,
+                EntityType.AUTH,
+                userId,
+                ActionType.PASSWORD_CHANGED,
+                "Password changed",
+                "Password was changed from account settings",
+                Map.of("source", "settings"));
     }
 
     public void verifyPassword(String rawPassword, String passwordHash) {
         if (!passwordService.matches(rawPassword, passwordHash)) {
             throw new AuthenticationFailedException(GENERIC_AUTH_FAILURE);
         }
+    }
+
+    public DurationHolder tokenDurations() {
+        return new DurationHolder(
+                jwtProperties.getAccessTokenExpiration(),
+                jwtProperties.getRefreshTokenExpiration());
+    }
+
+    private UUID requireAuthenticatedUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof AuthenticatedUser authenticatedUser) {
+            return authenticatedUser.userId();
+        }
+        throw new AuthenticationFailedException("Unauthorized");
+    }
+
+    private UUID resolveUserIdForLogout(String plainRefreshToken) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof AuthenticatedUser authenticatedUser) {
+            return authenticatedUser.userId();
+        }
+        if (plainRefreshToken == null || plainRefreshToken.isBlank()) {
+            return null;
+        }
+        try {
+            JwtClaims claims = jwtService.parseClaims(plainRefreshToken.trim());
+            if (claims.isRefreshToken()) {
+                return claims.userId();
+            }
+        } catch (JwtException ignored) {
+            // Idempotent logout
+        }
+        return null;
     }
 
     private JwtClaims parseRefreshClaims(String plainRefreshToken) {
@@ -186,12 +291,10 @@ public class AuthenticationService {
         throw new AccountStatusException("Account is inactive");
     }
 
-    private UUID requireAuthenticatedUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !(authentication.getPrincipal() instanceof AuthenticatedUser authenticatedUser)) {
-            throw new AuthenticationFailedException("Unauthorized");
+    private void ensureEmailVerifiedIfRequired(User user) {
+        if (authProperties.isRequireEmailVerification() && !user.isEmailVerified()) {
+            throw new AccountStatusException("Email verification required");
         }
-        return authenticatedUser.userId();
     }
 
     private void revokeRefreshTokenSilently(UUID userId, String plainRefreshToken) {
@@ -212,5 +315,14 @@ public class AuthenticationService {
         } catch (JwtException ignored) {
             // Idempotent logout — do not reveal token validity.
         }
+    }
+
+    public record LoginResult(LoginResponse response, AuthSessionTokens tokens) {
+    }
+
+    public record RefreshResult(RefreshTokenResponse response, AuthSessionTokens tokens) {
+    }
+
+    public record DurationHolder(java.time.Duration access, java.time.Duration refresh) {
     }
 }

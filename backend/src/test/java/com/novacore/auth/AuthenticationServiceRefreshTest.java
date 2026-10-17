@@ -57,6 +57,15 @@ class AuthenticationServiceRefreshTest {
     @Mock
     private RefreshTokenService refreshTokenService;
 
+    @Mock
+    private AuthProperties authProperties;
+
+    @Mock
+    private EmailVerificationService emailVerificationService;
+
+    @Mock
+    private com.novacore.activity.ActivityLogService activityLogService;
+
     @InjectMocks
     private AuthenticationService authenticationService;
 
@@ -79,6 +88,8 @@ class AuthenticationServiceRefreshTest {
         storedToken.setTokenHash("existing-hash");
         storedToken.setExpiresAt(Instant.now().plus(Duration.ofDays(7)));
         storedToken.setRevoked(false);
+        storedToken.setUserAgent("Mozilla/5.0 (Windows NT 10.0) Chrome/120.0");
+        storedToken.setIpAddress("127.0.0.1");
 
         request = new RefreshTokenRequest();
         request.setRefreshToken("plain.refresh.token");
@@ -101,15 +112,19 @@ class AuthenticationServiceRefreshTest {
         when(refreshTokenService.generateRefreshToken(user.getId(), "alice")).thenReturn("new.refresh");
         when(jwtProperties.getAccessTokenExpiration()).thenReturn(Duration.ofMinutes(15));
 
-        RefreshTokenResponse response = authenticationService.refresh(request);
+        ClientDeviceInfo device = new ClientDeviceInfo("Mozilla/5.0", "10.0.0.1");
+        AuthenticationService.RefreshResult result =
+                authenticationService.refresh(request.getRefreshToken(), device);
+        RefreshTokenResponse response = result.response();
+        AuthSessionTokens tokens = result.tokens();
 
-        assertThat(response.getAccessToken()).isEqualTo("new.access");
-        assertThat(response.getRefreshToken()).isEqualTo("new.refresh");
-        assertThat(response.getTokenType()).isEqualTo("Bearer");
+        assertThat(tokens.accessToken()).isEqualTo("new.access");
+        assertThat(tokens.refreshToken()).isEqualTo("new.refresh");
+        assertThat(response.getTokenType()).isEqualTo("Cookie");
         assertThat(response.getExpiresIn()).isEqualTo(900);
 
         verify(refreshTokenService).revoke(storedToken);
-        verify(refreshTokenService).persistRefreshToken(user, "new.refresh");
+        verify(refreshTokenService).persistRefreshToken(user, "new.refresh", device);
     }
 
     @Test
@@ -124,12 +139,12 @@ class AuthenticationServiceRefreshTest {
 
         when(jwtService.parseClaims("plain.refresh.token")).thenReturn(claims);
 
-        assertThatThrownBy(() -> authenticationService.refresh(request))
+        assertThatThrownBy(() -> authenticationService.refresh(request.getRefreshToken(), ClientDeviceInfo.unknown()))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessage(GENERIC_FAILURE);
 
         verify(refreshTokenService, never()).revoke(any());
-        verify(refreshTokenService, never()).persistRefreshToken(any(), anyString());
+        verify(refreshTokenService, never()).persistRefreshToken(any(), anyString(), any());
     }
 
     @Test
@@ -145,7 +160,7 @@ class AuthenticationServiceRefreshTest {
         when(jwtService.parseClaims("plain.refresh.token")).thenReturn(claims);
         when(refreshTokenService.findByPlainToken("plain.refresh.token")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authenticationService.refresh(request))
+        assertThatThrownBy(() -> authenticationService.refresh(request.getRefreshToken(), ClientDeviceInfo.unknown()))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessage(GENERIC_FAILURE);
     }
@@ -164,11 +179,11 @@ class AuthenticationServiceRefreshTest {
         when(jwtService.parseClaims("plain.refresh.token")).thenReturn(claims);
         when(refreshTokenService.findByPlainToken("plain.refresh.token")).thenReturn(Optional.of(storedToken));
 
-        assertThatThrownBy(() -> authenticationService.refresh(request))
+        assertThatThrownBy(() -> authenticationService.refresh(request.getRefreshToken(), ClientDeviceInfo.unknown()))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessage(GENERIC_FAILURE);
 
-        verify(refreshTokenService, never()).persistRefreshToken(any(), anyString());
+        verify(refreshTokenService, never()).persistRefreshToken(any(), anyString(), any());
     }
 
     @Test
@@ -185,7 +200,7 @@ class AuthenticationServiceRefreshTest {
         when(jwtService.parseClaims("plain.refresh.token")).thenReturn(claims);
         when(refreshTokenService.findByPlainToken("plain.refresh.token")).thenReturn(Optional.of(storedToken));
 
-        assertThatThrownBy(() -> authenticationService.refresh(request))
+        assertThatThrownBy(() -> authenticationService.refresh(request.getRefreshToken(), ClientDeviceInfo.unknown()))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessage(GENERIC_FAILURE);
     }

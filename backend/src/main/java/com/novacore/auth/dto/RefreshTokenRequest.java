@@ -1,10 +1,10 @@
 package com.novacore.auth.dto;
 
-import jakarta.validation.constraints.NotBlank;
-
+/**
+ * Optional body for refresh. Prefer the HttpOnly refresh cookie when present.
+ */
 public class RefreshTokenRequest {
 
-    @NotBlank
     private String refreshToken;
 
     public String getRefreshToken() {

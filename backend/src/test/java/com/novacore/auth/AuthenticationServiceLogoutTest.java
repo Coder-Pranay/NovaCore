@@ -29,7 +29,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -59,6 +58,15 @@ class AuthenticationServiceLogoutTest {
 
     @Mock
     private RefreshTokenService refreshTokenService;
+
+    @Mock
+    private AuthProperties authProperties;
+
+    @Mock
+    private EmailVerificationService emailVerificationService;
+
+    @Mock
+    private com.novacore.activity.ActivityLogService activityLogService;
 
     @InjectMocks
     private AuthenticationService authenticationService;
@@ -103,7 +111,7 @@ class AuthenticationServiceLogoutTest {
         when(jwtService.parseClaims("plain.refresh.token")).thenReturn(claims);
         when(refreshTokenService.findByPlainToken("plain.refresh.token")).thenReturn(Optional.of(storedToken));
 
-        assertThatCode(() -> authenticationService.logout(request)).doesNotThrowAnyException();
+        assertThatCode(() -> authenticationService.logout(request.getRefreshToken())).doesNotThrowAnyException();
 
         verify(refreshTokenService).revoke(storedToken);
     }
@@ -116,7 +124,7 @@ class AuthenticationServiceLogoutTest {
         when(jwtService.parseClaims("plain.refresh.token")).thenReturn(claims);
         when(refreshTokenService.findByPlainToken("plain.refresh.token")).thenReturn(Optional.of(storedToken));
 
-        assertThatCode(() -> authenticationService.logout(request)).doesNotThrowAnyException();
+        assertThatCode(() -> authenticationService.logout(request.getRefreshToken())).doesNotThrowAnyException();
 
         verify(refreshTokenService, never()).revoke(any());
     }
@@ -128,7 +136,7 @@ class AuthenticationServiceLogoutTest {
         when(jwtService.parseClaims("plain.refresh.token")).thenReturn(claims);
         when(refreshTokenService.findByPlainToken("plain.refresh.token")).thenReturn(Optional.empty());
 
-        assertThatCode(() -> authenticationService.logout(request)).doesNotThrowAnyException();
+        assertThatCode(() -> authenticationService.logout(request.getRefreshToken())).doesNotThrowAnyException();
 
         verify(refreshTokenService, never()).revoke(any());
     }
@@ -138,7 +146,7 @@ class AuthenticationServiceLogoutTest {
         when(jwtService.parseClaims("plain.refresh.token"))
                 .thenThrow(new JwtException("Token expired", new RuntimeException("expired")));
 
-        assertThatCode(() -> authenticationService.logout(request)).doesNotThrowAnyException();
+        assertThatCode(() -> authenticationService.logout(request.getRefreshToken())).doesNotThrowAnyException();
 
         verify(refreshTokenService, never()).findByPlainToken(any());
         verify(refreshTokenService, never()).revoke(any());
@@ -151,9 +159,9 @@ class AuthenticationServiceLogoutTest {
         when(jwtService.parseClaims("plain.refresh.token")).thenReturn(claims);
         when(refreshTokenService.findByPlainToken("plain.refresh.token")).thenReturn(Optional.of(storedToken));
 
-        authenticationService.logout(request);
+        authenticationService.logout(request.getRefreshToken());
         storedToken.setRevoked(true);
-        authenticationService.logout(request);
+        authenticationService.logout(request.getRefreshToken());
 
         verify(refreshTokenService, times(1)).revoke(storedToken);
     }
@@ -170,7 +178,7 @@ class AuthenticationServiceLogoutTest {
 
         when(jwtService.parseClaims("plain.refresh.token")).thenReturn(claims);
 
-        assertThatCode(() -> authenticationService.logout(request)).doesNotThrowAnyException();
+        assertThatCode(() -> authenticationService.logout(request.getRefreshToken())).doesNotThrowAnyException();
 
         verify(refreshTokenService, never()).findByPlainToken(any());
         verify(refreshTokenService, never()).revoke(any());
@@ -183,19 +191,24 @@ class AuthenticationServiceLogoutTest {
 
         when(jwtService.parseClaims("plain.refresh.token")).thenReturn(claims);
 
-        assertThatCode(() -> authenticationService.logout(request)).doesNotThrowAnyException();
+        assertThatCode(() -> authenticationService.logout(request.getRefreshToken())).doesNotThrowAnyException();
 
         verify(refreshTokenService, never()).findByPlainToken(any());
         verify(refreshTokenService, never()).revoke(any());
     }
 
     @Test
-    void logout_withoutAuthentication_throwsUnauthorized() {
+    void logout_withoutAuthentication_stillRevokesUsingRefreshClaims() {
         SecurityContextHolder.clearContext();
+        JwtClaims claims = refreshClaimsFor(user.getId());
 
-        assertThatThrownBy(() -> authenticationService.logout(request))
-                .isInstanceOf(AuthenticationFailedException.class)
-                .hasMessage("Unauthorized");
+        when(jwtService.parseClaims("plain.refresh.token")).thenReturn(claims);
+        when(refreshTokenService.findByPlainToken("plain.refresh.token")).thenReturn(Optional.of(storedToken));
+
+        assertThatCode(() -> authenticationService.logout(request.getRefreshToken()))
+                .doesNotThrowAnyException();
+
+        verify(refreshTokenService).revoke(storedToken);
     }
 
     private JwtClaims refreshClaimsFor(UUID userId) {

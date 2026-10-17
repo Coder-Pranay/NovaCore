@@ -6,7 +6,6 @@ import {
   HardDriveIcon,
   SearchIcon,
   UploadIcon,
-  UserPlusIcon,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -34,8 +33,8 @@ const ACTIONS: QuickAction[] = [
   {
     id: "upload-asset",
     title: "Upload Asset",
-    description: "Assets module coming soon",
-    comingSoon: true,
+    description: "Add a file to one of your Spaces",
+    href: ROUTES.ASSETS,
     icon: UploadIcon,
   },
   {
@@ -44,13 +43,6 @@ const ACTIONS: QuickAction[] = [
     description: "Find anything across NovaCore",
     href: ROUTES.SEARCH,
     icon: SearchIcon,
-  },
-  {
-    id: "invite-member",
-    title: "Invite Member",
-    description: "Share a Space with your team",
-    href: ROUTES.SHARED,
-    icon: UserPlusIcon,
   },
   {
     id: "manage-storage",
@@ -68,7 +60,7 @@ export function QuickActionsWidget() {
         <CardTitle className="text-base">Quick actions</CardTitle>
         <CardDescription>Jump into common workflows</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {ACTIONS.map((action) => {
           const Icon = action.icon;
           const className = cn(

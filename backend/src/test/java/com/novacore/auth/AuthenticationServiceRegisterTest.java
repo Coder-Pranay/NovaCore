@@ -56,6 +56,15 @@ class AuthenticationServiceRegisterTest {
     @Mock
     private RefreshTokenService refreshTokenService;
 
+    @Mock
+    private AuthProperties authProperties;
+
+    @Mock
+    private EmailVerificationService emailVerificationService;
+
+    @Mock
+    private com.novacore.activity.ActivityLogService activityLogService;
+
     @InjectMocks
     private AuthenticationService authenticationService;
 
@@ -120,6 +129,7 @@ class AuthenticationServiceRegisterTest {
         assertThat(persisted.getPasswordHash()).doesNotContain("Secret123!");
         assertThat(persisted.getRoles()).containsExactly(userRole);
         verify(passwordService).hashPassword("Secret123!");
+        verify(emailVerificationService).sendVerificationEmail(saved);
     }
 
     @Test

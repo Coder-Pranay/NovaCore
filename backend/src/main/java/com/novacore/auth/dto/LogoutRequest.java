@@ -1,10 +1,10 @@
 package com.novacore.auth.dto;
 
-import jakarta.validation.constraints.NotBlank;
-
+/**
+ * Optional body for logout. Prefer the HttpOnly refresh cookie when present.
+ */
 public class LogoutRequest {
 
-    @NotBlank
     private String refreshToken;
 
     public String getRefreshToken() {

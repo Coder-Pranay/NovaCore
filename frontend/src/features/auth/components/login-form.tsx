@@ -131,6 +131,13 @@ export function LoginForm() {
           "Sign in"
         )}
       </Button>
+
+      <p className="text-muted-foreground text-center text-sm">
+        Don&apos;t have an account?{" "}
+        <Link href={ROUTES.REGISTER} className="text-primary hover:underline">
+          Create account
+        </Link>
+      </p>
     </form>
   );
 }

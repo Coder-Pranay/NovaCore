@@ -15,7 +15,7 @@ public class AssetResponse {
     private AssetType assetType;
     private String mimeType;
     private Long fileSize;
-    private String storageKey;
+    private boolean contentAvailable;
     private String originalFilename;
     private String extension;
     private boolean favorite;
@@ -87,12 +87,12 @@ public class AssetResponse {
         this.fileSize = fileSize;
     }
 
-    public String getStorageKey() {
-        return storageKey;
+    public boolean isContentAvailable() {
+        return contentAvailable;
     }
 
-    public void setStorageKey(String storageKey) {
-        this.storageKey = storageKey;
+    public void setContentAvailable(boolean contentAvailable) {
+        this.contentAvailable = contentAvailable;
     }
 
     public String getOriginalFilename() {

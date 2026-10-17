@@ -49,4 +49,4 @@ Offline sync is intentionally out of scope.
 ## Health checks
 
 - `GET /` or `GET /login` for the frontend container
-- Confirm API CORS and cookie/JWT configuration match the deployed origins
+- Confirm API CORS (`allowCredentials` + explicit origins) and `novacore.auth.cookie.secure` for HTTPS

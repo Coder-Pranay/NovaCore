@@ -25,6 +25,10 @@ spring:
     locations: classpath:db/migration
     clean-disabled: false
 
+  mail:
+    host: localhost
+    port: 1025
+
   data:
     redis:
       host: ${NOVACORE_REDIS_HOST:localhost}
@@ -36,6 +40,10 @@ spring:
     exclude: []
 
 novacore:
+  auth:
+    require-email-verification: false
+    frontend-base-url: http://localhost:3000
+    mail-from: noreply@novacore.test
   storage:
     endpoint: ${NOVACORE_STORAGE_ENDPOINT:http://localhost:9000}
     access-key: ${NOVACORE_STORAGE_ACCESS_KEY:minioadmin}
@@ -49,6 +57,11 @@ novacore:
     access-token-expiration: 15m
     refresh-token-expiration: 7d
     issuer: novacore-test
+
+management:
+  health:
+    mail:
+      enabled: false
 
 logging:
   level:

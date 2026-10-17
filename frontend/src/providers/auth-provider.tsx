@@ -6,23 +6,15 @@ import {
   refreshSession,
   restoreSession,
 } from "@/features/auth/utils/token-manager";
-import { getAccessToken, useAuthStore } from "@/store/auth-store";
-import { ROUTES } from "@/constants";
+import { useAuthStore } from "@/store/auth-store";
+import { redirectToLogin } from "@/services/api/client";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setLoading = useAuthStore((state) => state.setLoading);
 
   useEffect(() => {
     configureApiClientAuth({
-      getAccessToken,
-      onUnauthorized: () => {
-        useAuthStore.getState().clear();
-
-        if (window.location.pathname !== ROUTES.LOGIN) {
-          const next = encodeURIComponent(window.location.pathname);
-          window.location.assign(`${ROUTES.LOGIN}?next=${next}`);
-        }
-      },
+      onUnauthorized: redirectToLogin,
       refreshAccessToken: refreshSession,
     });
 

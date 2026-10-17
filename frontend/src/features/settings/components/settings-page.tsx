@@ -2,17 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { toast } from "sonner";
 
 import { Button, buttonVariants } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ROUTES } from "@/constants";
 import { NotificationPreferencesDialog } from "@/features/notifications/dialogs";
-import { settingsService } from "@/features/settings/api/settings-service";
+import { SessionsSection } from "@/features/settings/components/sessions-section";
 import {
   usePreferences,
   useUpdatePreferences,
@@ -35,8 +33,6 @@ const SECTIONS: Array<{ id: SettingsSection; label: string }> = [
   { id: "notifications", label: "Notifications" },
   { id: "sessions", label: "Sessions" },
   { id: "preferences", label: "Preferences" },
-  { id: "api-keys", label: "API Keys" },
-  { id: "connected-accounts", label: "Connected Accounts" },
 ];
 
 export function SettingsPage() {
@@ -177,19 +173,18 @@ export function SettingsPage() {
                   </Link>
                 </div>
                 <div className="rounded-lg border p-4">
-                  <h3 className="font-medium">Two-factor authentication</h3>
+                  <h3 className="font-medium">Active sessions</h3>
                   <p className="text-muted-foreground mt-1 text-sm">
-                    Placeholder — 2FA is not available in the current backend.
+                    Review and revoke signed-in devices from the Sessions tab.
                   </p>
-                  <Button type="button" className="mt-3" variant="outline" disabled>
-                    Enable 2FA
+                  <Button
+                    type="button"
+                    className="mt-3"
+                    variant="outline"
+                    onClick={() => setSection("sessions")}
+                  >
+                    Manage sessions
                   </Button>
-                </div>
-                <div className="rounded-lg border p-4">
-                  <h3 className="font-medium">Recent login activity</h3>
-                  <p className="text-muted-foreground mt-1 text-sm">
-                    Login history requires a future security activity API.
-                  </p>
                 </div>
               </div>
             </Section>
@@ -213,49 +208,9 @@ export function SettingsPage() {
           {section === "sessions" ? (
             <Section
               title="Sessions"
-              description="Auth is JWT/stateless — session listing is not available."
+              description="Devices currently signed in to your NovaCore account."
             >
-              <EmptyState
-                title="No sessions API"
-                description="Active device sessions and logout-other-sessions will appear when a refresh-token management API ships."
-                className="py-8"
-              />
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    void settingsService
-                      .getSessions()
-                      .catch((error: unknown) =>
-                        toast.error(
-                          error instanceof Error
-                            ? error.message
-                            : "Sessions unavailable",
-                        ),
-                      );
-                  }}
-                >
-                  Refresh sessions
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={() => {
-                    void settingsService
-                      .logoutOtherSessions()
-                      .catch((error: unknown) =>
-                        toast.error(
-                          error instanceof Error
-                            ? error.message
-                            : "Unable to revoke sessions",
-                        ),
-                      );
-                  }}
-                >
-                  Logout other sessions
-                </Button>
-              </div>
+              <SessionsSection />
             </Section>
           ) : null}
 
@@ -368,31 +323,6 @@ export function SettingsPage() {
             </Section>
           ) : null}
 
-          {section === "api-keys" ? (
-            <Section
-              title="API keys"
-              description="Placeholder for personal access tokens."
-            >
-              <EmptyState
-                title="API keys coming soon"
-                description="Token management will connect to a future developer API."
-                className="py-8"
-              />
-            </Section>
-          ) : null}
-
-          {section === "connected-accounts" ? (
-            <Section
-              title="Connected accounts"
-              description="Placeholder for OAuth providers."
-            >
-              <EmptyState
-                title="No connected accounts"
-                description="Google, Microsoft, and other providers will appear here."
-                className="py-8"
-              />
-            </Section>
-          ) : null}
         </div>
       </div>
 

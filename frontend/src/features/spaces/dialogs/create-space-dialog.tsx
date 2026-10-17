@@ -39,8 +39,8 @@ export function CreateSpaceDialog({
       name: "",
       slug: "",
       description: "",
-      icon: "",
-      color: "",
+      icon: "folder",
+      color: "#3B82F6",
       type: "BLANK",
     },
   });
@@ -60,7 +60,7 @@ export function CreateSpaceDialog({
         <DialogHeader>
           <DialogTitle>Create space</DialogTitle>
           <DialogDescription>
-            Create a new Life Space to organize your assets.
+            Give it a name and look — slug and type are handled for you.
           </DialogDescription>
         </DialogHeader>
 
@@ -69,11 +69,11 @@ export function CreateSpaceDialog({
           onSubmit={form.handleSubmit(async (values) => {
             const space = await createSpace.mutateAsync({
               name: values.name,
-              slug: values.slug || undefined,
+              // Slug omitted — backend auto-generates from the name.
               description: values.description || null,
               icon: values.icon || null,
               color: values.color || null,
-              type: values.type,
+              type: values.type || "BLANK",
             });
             form.reset();
             onOpenChange(false);

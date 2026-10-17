@@ -6,27 +6,33 @@ export interface LoginRequest {
   rememberMe?: boolean;
 }
 
+export interface RegisterRequest {
+  email: string;
+  username: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}
+
+export interface RegisterResponse {
+  id: string;
+  email: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  status: string;
+  createdAt: string;
+}
+
 export interface LoginResponse {
-  accessToken: string;
-  refreshToken: string;
   tokenType: string;
   expiresIn: number;
   user: AuthenticatedUser;
 }
 
-export interface RefreshRequest {
-  refreshToken: string;
-}
-
 export interface RefreshResponse {
-  accessToken: string;
-  refreshToken: string;
   tokenType: string;
   expiresIn: number;
-}
-
-export interface LogoutRequest {
-  refreshToken: string;
 }
 
 export interface ForgotPasswordRequest {
@@ -45,6 +51,24 @@ export interface ChangePasswordRequest {
   confirmPassword: string;
 }
 
+export interface VerifyEmailRequest {
+  token: string;
+}
+
+export interface ResendVerificationRequest {
+  email: string;
+}
+
+export interface AuthSessionDevice {
+  id: string;
+  device: string;
+  browser: string;
+  ipAddress: string;
+  lastActiveAt: string;
+  createdAt: string;
+  current: boolean;
+}
+
 export interface PasswordValidationResponse {
   valid: boolean;
   rules: {
@@ -57,8 +81,6 @@ export interface PasswordValidationResponse {
 }
 
 export interface AuthSession {
-  accessToken: string;
-  refreshToken: string;
   user: AuthenticatedUser;
   rememberMe?: boolean;
 }

@@ -60,6 +60,15 @@ class AuthenticationServiceLoginTest {
     @Mock
     private RefreshTokenService refreshTokenService;
 
+    @Mock
+    private AuthProperties authProperties;
+
+    @Mock
+    private EmailVerificationService emailVerificationService;
+
+    @Mock
+    private com.novacore.activity.ActivityLogService activityLogService;
+
     @InjectMocks
     private AuthenticationService authenticationService;
 
@@ -102,17 +111,21 @@ class AuthenticationServiceLoginTest {
         when(refreshTokenService.generateRefreshToken(activeUser.getId(), "alice")).thenReturn("refresh.jwt");
         when(jwtProperties.getAccessTokenExpiration()).thenReturn(Duration.ofMinutes(15));
         when(userMapper.toAuthenticatedUserResponse(activeUser)).thenReturn(userDto);
+        when(authProperties.isRequireEmailVerification()).thenReturn(false);
 
-        LoginResponse response = authenticationService.authenticate(request);
+        AuthenticationService.LoginResult result =
+                authenticationService.authenticate(request, ClientDeviceInfo.unknown());
+        LoginResponse response = result.response();
+        AuthSessionTokens tokens = result.tokens();
 
-        assertThat(response.getAccessToken()).isEqualTo("access.jwt");
-        assertThat(response.getRefreshToken()).isEqualTo("refresh.jwt");
-        assertThat(response.getTokenType()).isEqualTo("Bearer");
+        assertThat(tokens.accessToken()).isEqualTo("access.jwt");
+        assertThat(tokens.refreshToken()).isEqualTo("refresh.jwt");
+        assertThat(response.getTokenType()).isEqualTo("Cookie");
         assertThat(response.getExpiresIn()).isEqualTo(900);
         assertThat(response.getUser().getUsername()).isEqualTo("alice");
         assertThat(response.getUser().getRoles()).containsExactly(RoleNames.USER);
 
-        verify(refreshTokenService).persistRefreshToken(activeUser, "refresh.jwt");
+        verify(refreshTokenService).persistRefreshToken(activeUser, "refresh.jwt", ClientDeviceInfo.unknown());
         verify(jwtService).generateAccessToken(activeUser.getId(), "alice");
     }
 
@@ -120,20 +133,21 @@ class AuthenticationServiceLoginTest {
     void authenticate_wrongPassword_throwsGenericFailure() {
         when(userRepository.findByEmailOrUsernameWithRoles("alice")).thenReturn(Optional.of(activeUser));
         when(passwordService.matches("Secret123!", "$2a$10$hashed")).thenReturn(false);
+        when(authProperties.isRequireEmailVerification()).thenReturn(false);
 
-        assertThatThrownBy(() -> authenticationService.authenticate(request))
+        assertThatThrownBy(() -> authenticationService.authenticate(request, ClientDeviceInfo.unknown()))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessage(GENERIC_FAILURE);
 
         verify(jwtService, never()).generateAccessToken(any(), anyString());
-        verify(refreshTokenService, never()).persistRefreshToken(any(), anyString());
+        verify(refreshTokenService, never()).persistRefreshToken(any(), anyString(), any());
     }
 
     @Test
     void authenticate_unknownUser_throwsGenericFailure() {
         when(userRepository.findByEmailOrUsernameWithRoles("alice")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authenticationService.authenticate(request))
+        assertThatThrownBy(() -> authenticationService.authenticate(request, ClientDeviceInfo.unknown()))
                 .isInstanceOf(AuthenticationFailedException.class)
                 .hasMessage(GENERIC_FAILURE);
 
@@ -145,7 +159,7 @@ class AuthenticationServiceLoginTest {
         activeUser.setStatus(UserStatus.LOCKED);
         when(userRepository.findByEmailOrUsernameWithRoles("alice")).thenReturn(Optional.of(activeUser));
 
-        assertThatThrownBy(() -> authenticationService.authenticate(request))
+        assertThatThrownBy(() -> authenticationService.authenticate(request, ClientDeviceInfo.unknown()))
                 .isInstanceOf(AccountStatusException.class)
                 .hasMessageContaining("locked");
 
@@ -157,8 +171,19 @@ class AuthenticationServiceLoginTest {
         activeUser.setStatus(UserStatus.INACTIVE);
         when(userRepository.findByEmailOrUsernameWithRoles("alice")).thenReturn(Optional.of(activeUser));
 
-        assertThatThrownBy(() -> authenticationService.authenticate(request))
+        assertThatThrownBy(() -> authenticationService.authenticate(request, ClientDeviceInfo.unknown()))
                 .isInstanceOf(AccountStatusException.class)
                 .hasMessageContaining("inactive");
+    }
+
+    @Test
+    void authenticate_unverifiedEmailWhenRequired_throwsForbidden() {
+        activeUser.setEmailVerified(false);
+        when(userRepository.findByEmailOrUsernameWithRoles("alice")).thenReturn(Optional.of(activeUser));
+        when(authProperties.isRequireEmailVerification()).thenReturn(true);
+
+        assertThatThrownBy(() -> authenticationService.authenticate(request, ClientDeviceInfo.unknown()))
+                .isInstanceOf(AccountStatusException.class)
+                .hasMessageContaining("Email verification");
     }
 }

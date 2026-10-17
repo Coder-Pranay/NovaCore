@@ -18,22 +18,30 @@ features/sharing/
   README.md
 ```
 
-Route: `/shared` (`app/(private)/shared/page.tsx`)
+Routes:
+
+- `/shared` — authenticated sharing hub (`app/(private)/shared/page.tsx`)
+- `/shared/link/[token]` — public landing with password gate
 
 ## Backend alignment
 
-The backend `com.novacore.sharing` package is a stub. This module provides a **production-ready client** with local persistence (`localStorage` key `novacore.sharingStore`) so the product UI is complete and can later swap to REST without changing React Query hooks.
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| POST | `/v1/public-links` | JWT | Create public link (hashes password with BCrypt) |
+| GET | `/v1/public-links` | JWT | List my public links |
+| GET | `/v1/public-links/resource` | JWT | Active link for a resource |
+| DELETE | `/v1/public-links/{id}` | JWT | Disable link |
+| GET | `/v1/public-links/open/{token}` | Public | Preview only (`passwordRequired`, no content IDs) |
+| POST | `/v1/public-links/open/{token}` | Public | Access content after password verification |
 
-Documented future API shape (for backend Sprint):
+Email invites / permission grants remain **localStorage** until `/v1/shares` ships.
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| POST | `/v1/shares` | Invite user to space/asset |
-| PATCH | `/v1/shares/{id}` | Update permission / expiration |
-| DELETE | `/v1/shares/{id}` | Revoke access |
-| GET | `/v1/shares` | List incoming/outgoing |
-| POST | `/v1/public-links` | Create public link |
-| DELETE | `/v1/public-links/{id}` | Disable public link |
+### Password security
+
+- Plaintext passwords are never stored (client or server).
+- Create sends password once; backend stores BCrypt hash only.
+- Access returns **401** for invalid/missing password and **404** for unknown/disabled/expired shares.
+- Preview never returns shared content; the UI cannot bypass the gate by reading local storage.
 
 ## Permissions model
 
@@ -48,14 +56,10 @@ Displayed via `PermissionBadge`.
 
 `sharingService`
 
-- `shareSpace()` / `shareAsset()` / `shareResource()`
-- `updatePermission()`
-- `removeAccess()`
-- `createPublicLink()`
-- `disablePublicLink()`
-- `getSharedUsers()`
-- `getSharedItems()`
-- `copyLink()`
+- Invite helpers still use local store
+- `createPublicLink()` / `disablePublicLink()` / `getPublicLink()` → real API
+- `previewPublicLink()` / `accessPublicLink()` → public open endpoints
+- `getSharedItems()` merges API public links with local invites
 
 ## Hooks
 
@@ -75,16 +79,14 @@ Query keys: `QUERY_KEYS.sharing.*`
 
 `ShareDialog` supports:
 
-- Invite by email + permission + expiration
+- Invite by email + permission + expiration (local)
 - People with access (update permission / remove)
-- Generate / copy / disable public link
-- Password placeholder (UI only)
+- Generate / copy / disable public link (API)
+- Real password protection (min 8 chars when enabled)
 
 ## Shared page
 
 Tabs: All · Incoming · Outgoing · Pending · Expired · Public links
-
-Filters: permission, resource type, visibility, sort, search, pagination.
 
 ## Auth permissions
 
@@ -93,8 +95,6 @@ Filters: permission, resource type, visibility, sort, search, pagination.
 
 ## Future integration
 
-- Replace local store with Axios calls
-- Email delivery + accept invitation flow
-- Real public link landing page with password gate
+- Email delivery + accept invitation flow (`/v1/shares`)
 - Wire Share into Spaces / Assets row actions when those modules land
-- Notifications for invite / revoke events (Sprint 9.9)
+- Notifications for invite / revoke events

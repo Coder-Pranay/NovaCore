@@ -9,6 +9,7 @@ import {
   GUEST_ROUTES,
   isGuestRoute,
   isPrivateRoute,
+  isPublicRoute,
   ROUTES,
 } from "@/constants";
 
@@ -36,15 +37,23 @@ export function RouteGuard({ children }: RouteGuardProps) {
     }
   }, [isAuthenticated, isLoading, pathname, router]);
 
-  if (isLoading) {
+  // Guest/public pages must render immediately — do not block on session restore.
+  // Once authenticated, keep the tree mounted during loading flickers so local
+  // UI state (upload queues, form drafts) is not destroyed.
+  if (
+    isLoading &&
+    !isAuthenticated &&
+    !isGuestRoute(pathname) &&
+    !isPublicRoute(pathname)
+  ) {
     return <PageLoader label="Checking authentication" />;
   }
 
-  if (isPrivateRoute(pathname) && !isAuthenticated) {
+  if (!isLoading && isPrivateRoute(pathname) && !isAuthenticated) {
     return <PageLoader label="Redirecting to sign in" />;
   }
 
-  if (isGuestRoute(pathname) && isAuthenticated) {
+  if (!isLoading && isGuestRoute(pathname) && isAuthenticated) {
     return <PageLoader label="Redirecting" />;
   }
 

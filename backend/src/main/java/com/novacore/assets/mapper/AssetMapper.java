@@ -17,6 +17,8 @@ public class AssetMapper {
         response.setAssetType(asset.getAssetType());
         response.setMimeType(asset.getMimeType());
         response.setFileSize(asset.getFileSize());
+        response.setContentAvailable(
+                asset.getStorageKey() != null && !asset.getStorageKey().isBlank());
         response.setOriginalFilename(asset.getOriginalFilename());
         response.setExtension(asset.getExtension());
         response.setFavorite(asset.isFavorite());

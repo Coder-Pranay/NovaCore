@@ -3,16 +3,16 @@ services:
     image: postgres:17-alpine
     container_name: novacore-postgres
     environment:
-      POSTGRES_DB: novacore
-      POSTGRES_USER: novacore
-      POSTGRES_PASSWORD: novacore
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgras123
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init-test-db.sh:/docker-entrypoint-initdb.d/01-init-test-db.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U novacore -d novacore"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -60,6 +60,13 @@ services:
       mc mb --ignore-existing novacore/novacore &&
       exit 0
       "
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: novacore-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
 volumes:
   postgres_data:

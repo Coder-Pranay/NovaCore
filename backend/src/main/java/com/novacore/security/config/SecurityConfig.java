@@ -53,7 +53,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(SecurityConstants.ACTUATOR_PATH).permitAll()
                         .requestMatchers(SecurityConstants.AUTH_PUBLIC_PATHS).permitAll()
-                        .requestMatchers(SecurityConstants.AUTH_LOGOUT_PATH).authenticated()
+                        .requestMatchers(SecurityConstants.PUBLIC_LINK_OPEN_PATH).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();

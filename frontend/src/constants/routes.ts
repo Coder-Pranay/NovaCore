@@ -1,14 +1,15 @@
 export const ROUTES = {
   HOME: "/",
   LOGIN: "/login",
+  REGISTER: "/register",
   FORGOT_PASSWORD: "/forgot-password",
   RESET_PASSWORD: "/reset-password",
+  VERIFY_EMAIL: "/verify-email",
   UNAUTHORIZED: "/unauthorized",
   OFFLINE: "/offline",
   NOT_FOUND: "/404",
   DASHBOARD: "/dashboard",
   SPACES: "/spaces",
-  /** Coming-soon placeholder page exists at `/assets` (full library TBD). */
   ASSETS: "/assets",
   PROFILE: "/profile",
   SETTINGS: "/settings",
@@ -25,7 +26,7 @@ export const ROUTES = {
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
 
-export const AUTH_COOKIE_NAME = "novacore-authenticated";
+export const AUTH_COOKIE_NAME = "novacore_session";
 
 /**
  * Routes that must not be used as post-login redirects into unfinished product flows.
@@ -68,8 +69,10 @@ export const PRIVATE_ROUTES = [
 /** Routes only for unauthenticated users */
 export const GUEST_ROUTES = [
   ROUTES.LOGIN,
+  ROUTES.REGISTER,
   ROUTES.FORGOT_PASSWORD,
   ROUTES.RESET_PASSWORD,
+  ROUTES.VERIFY_EMAIL,
 ] as const;
 
 export function isPublicRoute(pathname: string): boolean {

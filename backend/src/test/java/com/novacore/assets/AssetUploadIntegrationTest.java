@@ -1,5 +1,7 @@
 package com.novacore.assets;
 
+import com.novacore.auth.AuthCookieTestHelper;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.novacore.auth.dto.LoginRequest;
@@ -94,6 +96,7 @@ class AssetUploadIntegrationTest {
                 .andExpect(jsonPath("$.data.originalFilename").value("report.pdf"))
                 .andExpect(jsonPath("$.data.extension").value("pdf"))
                 .andExpect(jsonPath("$.data.description").value("Annual checkup"))
+                .andExpect(jsonPath("$.data.contentAvailable").value(true))
                 .andExpect(jsonPath("$.data.storageKey").doesNotExist());
 
         Asset saved = assetRepository.findAll().getFirst();
@@ -230,9 +233,7 @@ class AssetUploadIntegrationTest {
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
                 .andReturn();
-
-        JsonNode data = objectMapper.readTree(loginResult.getResponse().getContentAsString()).get("data");
-        return new AuthSession(data.get("accessToken").asText());
+        return new AuthSession(AuthCookieTestHelper.requireCookieValue(loginResult, AuthCookieTestHelper.ACCESS));
     }
 
     private record AuthSession(String accessToken) {

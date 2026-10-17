@@ -213,21 +213,26 @@ test.describe("NovaCore QA audit", () => {
     const obs = attachObservers(page);
     await loginViaUi(page);
     await page.goto("/ai");
-    await expect(page.locator("body")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /assistant is not available yet/i }),
+    ).toBeVisible();
     expect(obs.pageErrors).toEqual([]);
   });
 
-  test("public share link placeholder does not 404", async ({ page }) => {
+  test("public share link landing does not 404", async ({ page }) => {
     const response = await page.goto("/shared/link/qa-token-123");
     expect(response?.status()).toBeLessThan(400);
-    await expect(page.getByText(/coming soon/i)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /share not found|password required/i }),
+    ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("assets coming soon page does not 404", async ({ page }) => {
+  test("assets page loads and is not a coming soon stub", async ({ page }) => {
     await loginViaUi(page);
     const response = await page.goto("/assets");
     expect(response?.status()).toBeLessThan(400);
-    await expect(page.getByText(/coming soon/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Assets" })).toBeVisible();
+    await expect(page.getByText(/coming soon/i)).toHaveCount(0);
   });
 
   test("logout returns to login and blocks dashboard", async ({ page }) => {

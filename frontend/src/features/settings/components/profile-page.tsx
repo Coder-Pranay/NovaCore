@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { CameraIcon } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +15,6 @@ import { getInitials } from "@/features/dashboard/utils";
 import {
   useProfile,
   useUpdateProfile,
-  useUploadAvatar,
 } from "@/features/settings/hooks";
 import {
   updateProfileSchema,
@@ -29,8 +27,6 @@ export function ProfilePage() {
   const profileQuery = useProfile();
   const preferencesQuery = usePreferences();
   const updateProfile = useUpdateProfile();
-  const uploadAvatar = useUploadAvatar();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const form = useForm<UpdateProfileFormValues>({
     resolver: zodResolver(updateProfileSchema),
@@ -102,30 +98,6 @@ export function ProfilePage() {
                   {getInitials(displayName)}
                 </AvatarFallback>
               </Avatar>
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="outline"
-                className="absolute -right-1 -bottom-1"
-                aria-label="Upload avatar"
-                disabled={uploadAvatar.isPending}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <CameraIcon className="size-3.5" />
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) {
-                    void uploadAvatar.mutateAsync(file).catch(() => undefined);
-                  }
-                  event.target.value = "";
-                }}
-              />
             </div>
             <div className="min-w-0 space-y-1">
               <h2 className="truncate text-lg font-semibold">{displayName}</h2>
@@ -139,11 +111,6 @@ export function ProfilePage() {
                   <Badge variant="destructive">Email unverified</Badge>
                 )}
               </div>
-              <p className="text-muted-foreground text-xs">
-                Avatar upload UI is ready. Backend endpoint{" "}
-                <code className="text-foreground">POST /v1/users/me/avatar</code>{" "}
-                is not available yet.
-              </p>
             </div>
           </section>
 

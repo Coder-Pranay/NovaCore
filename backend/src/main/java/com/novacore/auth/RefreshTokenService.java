@@ -10,6 +10,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -51,17 +52,37 @@ public class RefreshTokenService {
 
     @Transactional
     public RefreshToken persistRefreshToken(User user, String plainToken) {
+        return persistRefreshToken(user, plainToken, ClientDeviceInfo.unknown());
+    }
+
+    @Transactional
+    public RefreshToken persistRefreshToken(User user, String plainToken, ClientDeviceInfo deviceInfo) {
+        Instant now = Instant.now();
         Instant expiresAt = jwtService.extractExpiration(plainToken);
+        ClientDeviceInfo info = deviceInfo != null ? deviceInfo : ClientDeviceInfo.unknown();
+        UserAgentParser.ParsedUserAgent parsed = UserAgentParser.parse(info.userAgent());
 
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUser(user);
         refreshToken.setTokenHash(hashToken(plainToken));
         refreshToken.setExpiresAt(expiresAt);
         refreshToken.setRevoked(false);
-        refreshToken.setCreatedAt(Instant.now());
-        refreshToken.setUpdatedAt(Instant.now());
+        refreshToken.setCreatedAt(now);
+        refreshToken.setUpdatedAt(now);
+        refreshToken.setLastUsedAt(now);
+        refreshToken.setUserAgent(info.userAgent());
+        refreshToken.setIpAddress(info.ipAddress());
+        refreshToken.setDeviceLabel(parsed.device() + " · " + parsed.browser());
 
         return refreshTokenRepository.save(refreshToken);
+    }
+
+    @Transactional
+    public void touchLastUsed(RefreshToken refreshToken) {
+        Instant now = Instant.now();
+        refreshToken.setLastUsedAt(now);
+        refreshToken.setUpdatedAt(now);
+        refreshTokenRepository.save(refreshToken);
     }
 
     @Transactional
@@ -71,10 +92,28 @@ public class RefreshTokenService {
         refreshTokenRepository.save(refreshToken);
     }
 
-    /**
-     * Placeholder — bulk revocation will be implemented with logout APIs.
-     */
+    @Transactional
     public void revokeAllForUser(UUID userId) {
-        throw new UnsupportedOperationException("Bulk refresh token revocation is not implemented yet");
+        List<RefreshToken> tokens = refreshTokenRepository.findAllByUserIdAndRevokedFalse(userId);
+        Instant now = Instant.now();
+        for (RefreshToken token : tokens) {
+            token.setRevoked(true);
+            token.setUpdatedAt(now);
+        }
+        refreshTokenRepository.saveAll(tokens);
+    }
+
+    @Transactional
+    public void revokeAllForUserExcept(UUID userId, String keepTokenHash) {
+        List<RefreshToken> tokens = refreshTokenRepository.findAllByUserIdAndRevokedFalse(userId);
+        Instant now = Instant.now();
+        for (RefreshToken token : tokens) {
+            if (keepTokenHash != null && keepTokenHash.equals(token.getTokenHash())) {
+                continue;
+            }
+            token.setRevoked(true);
+            token.setUpdatedAt(now);
+        }
+        refreshTokenRepository.saveAll(tokens);
     }
 }

@@ -1,3 +1,5 @@
+import type { AuthSessionDevice } from "@/features/auth/types";
+import { authService } from "@/features/auth/api/auth-service";
 import type { UserPreferences } from "@/features/settings/types";
 import {
   readUserPreferences,
@@ -5,8 +7,7 @@ import {
 } from "@/features/settings/utils";
 
 /**
- * Settings preferences service.
- * Theme syncs with next-themes via the UI; other prefs are local until a Settings API ships.
+ * Settings preferences + authenticated session management.
  */
 export const settingsService = {
   async getPreferences(): Promise<UserPreferences> {
@@ -20,21 +21,15 @@ export const settingsService = {
     return preferences;
   },
 
-  /**
-   * Session listing is unavailable — auth is JWT/stateless.
-   */
-  async getSessions(): Promise<never> {
-    throw new Error(
-      "Active session listing is not available. Authentication is JWT-based (stateless).",
-    );
+  async getSessions(): Promise<AuthSessionDevice[]> {
+    return authService.getSessions();
   },
 
-  /**
-   * Logout-other-sessions requires a future refresh-token admin API.
-   */
-  async logoutOtherSessions(): Promise<never> {
-    throw new Error(
-      "Revoking other sessions is not available yet. Use Sign out on this device.",
-    );
+  async revokeSession(sessionId: string): Promise<void> {
+    await authService.revokeSession(sessionId);
+  },
+
+  async logoutOtherSessions(): Promise<void> {
+    await authService.revokeOtherSessions();
   },
 };

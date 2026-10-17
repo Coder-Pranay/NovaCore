@@ -338,7 +338,7 @@ export function SpaceDetailPage() {
         ) : !stats?.recentAssets.length ? (
           <EmptyState
             title="No assets yet"
-            description="Assets management arrives in Sprint 9.5."
+            description="Upload files from the Assets page to see them here."
             className="py-8"
           />
         ) : (
@@ -409,7 +409,7 @@ export function SpaceDetailPage() {
           className="py-8"
         />
         <p className="text-muted-foreground text-center text-xs">
-          Asset browsing will expand with the full Assets module.
+          Browse and upload files from the Assets page.
         </p>
       </Section>
 

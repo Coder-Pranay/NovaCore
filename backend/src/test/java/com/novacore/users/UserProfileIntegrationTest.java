@@ -1,5 +1,7 @@
 package com.novacore.users;
 
+import com.novacore.auth.AuthCookieTestHelper;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.novacore.auth.dto.LoginRequest;
@@ -181,9 +183,7 @@ class UserProfileIntegrationTest {
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
                 .andReturn();
-
-        JsonNode data = objectMapper.readTree(loginResult.getResponse().getContentAsString()).get("data");
-        return new AuthSession(data.get("accessToken").asText());
+        return new AuthSession(AuthCookieTestHelper.requireCookieValue(loginResult, AuthCookieTestHelper.ACCESS));
     }
 
     private record AuthSession(String accessToken) {

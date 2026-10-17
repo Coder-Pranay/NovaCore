@@ -11,6 +11,8 @@ npm run dev
 
 App: `http://localhost:3000` · API default: `http://localhost:8080/api`
 
+Guest auth routes: `/login`, `/register`, `/forgot-password`, `/reset-password`.
+
 ## Scripts
 
 | Script | Purpose |
@@ -19,6 +21,7 @@ App: `http://localhost:3000` · API default: `http://localhost:8080/api`
 | `npm run build` | Production build (must pass) |
 | `npm run start` | Serve production build |
 | `npm run lint` | ESLint (errors must be zero) |
+| `npm run test:e2e` | Playwright end-to-end suite |
 
 ## Adding a feature page
 

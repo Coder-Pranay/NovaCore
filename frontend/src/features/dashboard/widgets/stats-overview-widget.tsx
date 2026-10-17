@@ -48,8 +48,9 @@ export function StatsOverviewWidget() {
       <StatCard
         title="Total Assets"
         value={summary?.assets.totalAssets ?? 0}
-        subtitle="Assets page coming soon"
+        subtitle="Files across your spaces"
         icon={FilesIcon}
+        href={ROUTES.ASSETS}
         isLoading={isLoading}
         isError={isError}
         onRetry={retry}

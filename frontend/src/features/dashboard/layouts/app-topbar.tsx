@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ChevronsUpDownIcon,
   LogOutIcon,
   MenuIcon,
   SearchIcon,
@@ -71,9 +70,6 @@ export function AppTopbar() {
           >
             <SearchIcon className="size-4" />
             <span>Search</span>
-            <kbd className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px] font-medium">
-              ⌘K
-            </kbd>
           </Link>
 
           <Link
@@ -86,18 +82,6 @@ export function AppTopbar() {
           >
             <SearchIcon className="size-4" />
           </Link>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="hidden gap-2 lg:inline-flex"
-            disabled
-            aria-label="Workspace switcher (coming soon)"
-          >
-            Personal
-            <ChevronsUpDownIcon className="size-3.5" />
-          </Button>
 
           <NotificationBell />
 

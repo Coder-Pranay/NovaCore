@@ -7,8 +7,8 @@ import {
   isNetworkError,
 } from "@/lib/api-client";
 import { parseApiError } from "@/utils/api-error";
-import { getAccessToken, useAuthStore } from "@/store/auth-store";
-import { ROUTES } from "@/constants";
+import { useAuthStore } from "@/store/auth-store";
+import { isGuestRoute, isPublicRoute, ROUTES } from "@/constants";
 import { refreshSession } from "@/features/auth/utils/token-manager";
 import { AUTH_PATHS } from "@/features/auth/api/auth-service";
 
@@ -27,7 +27,7 @@ type RetriableRequestConfig = InternalAxiosRequestConfig & {
 };
 
 type QueueEntry = {
-  resolve: (token: string) => void;
+  resolve: () => void;
   reject: (error: unknown) => void;
 };
 
@@ -39,35 +39,50 @@ function shouldSkipAuthRefresh(url?: string): boolean {
     return false;
   }
 
-  return [AUTH_PATHS.login, AUTH_PATHS.refresh, AUTH_PATHS.forgotPassword, AUTH_PATHS.resetPassword].some(
-    (path) => url.includes(path),
-  );
+  return [
+    AUTH_PATHS.register,
+    AUTH_PATHS.login,
+    AUTH_PATHS.refresh,
+    AUTH_PATHS.logout,
+    AUTH_PATHS.forgotPassword,
+    AUTH_PATHS.resetPassword,
+    "/v1/public-links/open/",
+  ].some((path) => url.includes(path));
 }
 
-function processQueue(error: unknown, token: string | null = null): void {
+function processQueue(error: unknown): void {
   failedQueue.forEach(({ resolve, reject }) => {
-    if (error || !token) {
+    if (error) {
       reject(error);
       return;
     }
-
-    resolve(token);
+    resolve();
   });
-
   failedQueue = [];
 }
 
-function redirectToLogin(): void {
+/** Never bounce guests/public share landings to login on bootstrap 401s. */
+export function redirectToLogin(): void {
   useAuthStore.getState().clear();
 
-  if (typeof window !== "undefined" && window.location.pathname !== ROUTES.LOGIN) {
-    const next = encodeURIComponent(window.location.pathname);
-    window.location.assign(`${ROUTES.LOGIN}?next=${next}`);
+  if (typeof window === "undefined") {
+    return;
   }
+
+  const pathname = window.location.pathname;
+  if (
+    pathname === ROUTES.LOGIN ||
+    isGuestRoute(pathname) ||
+    isPublicRoute(pathname)
+  ) {
+    return;
+  }
+
+  const next = encodeURIComponent(pathname);
+  window.location.assign(`${ROUTES.LOGIN}?next=${next}`);
 }
 
 configureApiClientAuth({
-  getAccessToken,
   onUnauthorized: redirectToLogin,
   refreshAccessToken: refreshSession,
 });
@@ -90,10 +105,7 @@ apiClient.interceptors.response.use(
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({
-            resolve: (token: string) => {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-              resolve(apiClient(originalRequest));
-            },
+            resolve: () => resolve(apiClient(originalRequest)),
             reject,
           });
         });
@@ -103,19 +115,18 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const newToken = await refreshSession();
+        const refreshed = await refreshSession();
 
-        if (!newToken) {
-          processQueue(error, null);
+        if (!refreshed) {
+          processQueue(error);
           redirectToLogin();
           return Promise.reject(parseApiError(error, "Your session has expired"));
         }
 
-        processQueue(null, newToken);
-        attachAuthHeader(originalRequest);
+        processQueue(null);
         return apiClient(originalRequest);
       } catch (refreshError) {
-        processQueue(refreshError, null);
+        processQueue(refreshError);
         redirectToLogin();
         return Promise.reject(parseApiError(refreshError, "Your session has expired"));
       } finally {

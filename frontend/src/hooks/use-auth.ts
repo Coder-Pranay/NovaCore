@@ -8,8 +8,6 @@ import {
 } from "@/features/auth/utils/authorization";
 
 export function useAuth() {
-  const accessToken = useAuthStore((state) => state.accessToken);
-  const refreshToken = useAuthStore((state) => state.refreshToken);
   const user = useAuthStore((state) => state.user);
   const roles = useAuthStore((state) => state.roles);
   const permissions = useAuthStore((state) => state.permissions);
@@ -18,13 +16,10 @@ export function useAuth() {
   const rememberMe = useAuthStore((state) => state.rememberMe);
   const setSession = useAuthStore((state) => state.setSession);
   const setUser = useAuthStore((state) => state.setUser);
-  const setTokens = useAuthStore((state) => state.setTokens);
   const setLoading = useAuthStore((state) => state.setLoading);
   const clear = useAuthStore((state) => state.clear);
 
   return {
-    accessToken,
-    refreshToken,
     user,
     roles,
     permissions,
@@ -33,7 +28,6 @@ export function useAuth() {
     rememberMe,
     setSession,
     setUser,
-    setTokens,
     setLoading,
     clear,
     hasRole: (role: string) => hasRole(user, role),

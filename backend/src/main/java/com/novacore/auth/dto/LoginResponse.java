@@ -1,28 +1,13 @@
 package com.novacore.auth.dto;
 
+/**
+ * Login API body — JWTs are delivered via HttpOnly cookies, not this payload.
+ */
 public class LoginResponse {
 
-    private String accessToken;
-    private String refreshToken;
-    private String tokenType;
+    private String tokenType = "Cookie";
     private long expiresIn;
     private AuthenticatedUserResponse user;
-
-    public String getAccessToken() {
-        return accessToken;
-    }
-
-    public void setAccessToken(String accessToken) {
-        this.accessToken = accessToken;
-    }
-
-    public String getRefreshToken() {
-        return refreshToken;
-    }
-
-    public void setRefreshToken(String refreshToken) {
-        this.refreshToken = refreshToken;
-    }
 
     public String getTokenType() {
         return tokenType;

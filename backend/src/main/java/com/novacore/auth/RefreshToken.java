@@ -50,6 +50,21 @@ public class RefreshToken {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
+    @Size(max = 512)
+    @Column(name = "user_agent", length = 512)
+    private String userAgent;
+
+    @Size(max = 64)
+    @Column(name = "ip_address", length = 64)
+    private String ipAddress;
+
+    @Size(max = 255)
+    @Column(name = "device_label", length = 255)
+    private String deviceLabel;
+
+    @Column(name = "last_used_at")
+    private Instant lastUsedAt;
+
     public UUID getId() {
         return id;
     }
@@ -104,6 +119,38 @@ public class RefreshToken {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getUserAgent() {
+        return userAgent;
+    }
+
+    public void setUserAgent(String userAgent) {
+        this.userAgent = userAgent;
+    }
+
+    public String getIpAddress() {
+        return ipAddress;
+    }
+
+    public void setIpAddress(String ipAddress) {
+        this.ipAddress = ipAddress;
+    }
+
+    public String getDeviceLabel() {
+        return deviceLabel;
+    }
+
+    public void setDeviceLabel(String deviceLabel) {
+        this.deviceLabel = deviceLabel;
+    }
+
+    public Instant getLastUsedAt() {
+        return lastUsedAt;
+    }
+
+    public void setLastUsedAt(Instant lastUsedAt) {
+        this.lastUsedAt = lastUsedAt;
     }
 
     @Override

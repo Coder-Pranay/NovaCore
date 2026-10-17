@@ -1,6 +1,5 @@
 package com.novacore.auth;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.novacore.auth.dto.LoginRequest;
 import com.novacore.auth.dto.RefreshTokenRequest;
@@ -17,6 +16,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+
+import jakarta.servlet.http.Cookie;
 
 import java.time.Duration;
 import java.util.UUID;
@@ -59,26 +60,23 @@ class AuthRefreshIntegrationTest {
     }
 
     @Test
-    void refresh_success_returnsNewTokensAndStoresOnlyHash() throws Exception {
-        String oldRefresh = loginAndGetRefreshToken("refresh.ok@novacore.test", "refreshok");
-
-        RefreshTokenRequest request = new RefreshTokenRequest();
-        request.setRefreshToken(oldRefresh);
+    void refresh_viaCookie_rotatesTokensAndStoresOnlyHash() throws Exception {
+        MvcResult loginResult = login("refresh.ok@novacore.test", "refreshok");
+        String oldRefresh = AuthCookieTestHelper.requireCookieValue(loginResult, AuthCookieTestHelper.REFRESH);
 
         MvcResult result = mockMvc.perform(post("/v1/auth/refresh")
+                        .cookie(AuthCookieTestHelper.refreshCookie(loginResult))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty())
-                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.data.accessToken").doesNotExist())
+                .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
+                .andExpect(jsonPath("$.data.tokenType").value("Cookie"))
                 .andExpect(jsonPath("$.data.expiresIn").isNumber())
                 .andReturn();
 
-        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).get("data");
-        String newRefresh = data.get("refreshToken").asText();
-
+        String newRefresh = AuthCookieTestHelper.requireCookieValue(result, AuthCookieTestHelper.REFRESH);
         assertThat(newRefresh).isNotEqualTo(oldRefresh);
         assertThat(refreshTokenRepository.findAll()).hasSize(2);
 
@@ -94,27 +92,27 @@ class AuthRefreshIntegrationTest {
     }
 
     @Test
-    void refresh_oldTokenUnusableAfterRotation() throws Exception {
-        String oldRefresh = loginAndGetRefreshToken("rotate@novacore.test", "rotateuser");
-
-        RefreshTokenRequest firstRefresh = new RefreshTokenRequest();
-        firstRefresh.setRefreshToken(oldRefresh);
+    void refresh_oldCookieUnusableAfterRotation() throws Exception {
+        MvcResult loginResult = login("rotate@novacore.test", "rotateuser");
+        Cookie oldRefreshCookie = AuthCookieTestHelper.refreshCookie(loginResult);
 
         mockMvc.perform(post("/v1/auth/refresh")
+                        .cookie(oldRefreshCookie)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(firstRefresh)))
+                        .content("{}"))
                 .andExpect(status().isOk());
 
         mockMvc.perform(post("/v1/auth/refresh")
+                        .cookie(oldRefreshCookie)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(firstRefresh)))
+                        .content("{}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Invalid refresh token"));
     }
 
     @Test
     void refresh_accessTokenRejected() throws Exception {
-        loginAndGetRefreshToken("access.rej@novacore.test", "accessrej");
+        login("access.rej@novacore.test", "accessrej");
         var user = userRepository.findByUsername("accessrej").orElseThrow();
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getUsername());
 
@@ -144,18 +142,17 @@ class AuthRefreshIntegrationTest {
 
     @Test
     void refresh_revokedToken_returns401() throws Exception {
-        String refresh = loginAndGetRefreshToken("revoked@novacore.test", "revokeduser");
+        MvcResult loginResult = login("revoked@novacore.test", "revokeduser");
+        String refresh = AuthCookieTestHelper.requireCookieValue(loginResult, AuthCookieTestHelper.REFRESH);
         RefreshToken stored = refreshTokenRepository.findByTokenHash(refreshTokenService.hashToken(refresh))
                 .orElseThrow();
         stored.setRevoked(true);
         refreshTokenRepository.save(stored);
 
-        RefreshTokenRequest request = new RefreshTokenRequest();
-        request.setRefreshToken(refresh);
-
         mockMvc.perform(post("/v1/auth/refresh")
+                        .cookie(new Cookie(AuthCookieTestHelper.REFRESH, refresh))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content("{}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Invalid refresh token"));
     }
@@ -183,7 +180,7 @@ class AuthRefreshIntegrationTest {
         }
     }
 
-    private String loginAndGetRefreshToken(String email, String username) throws Exception {
+    private MvcResult login(String email, String username) throws Exception {
         RegisterRequest register = new RegisterRequest();
         register.setEmail(email);
         register.setUsername(username);
@@ -200,15 +197,10 @@ class AuthRefreshIntegrationTest {
         login.setEmailOrUsername(username);
         login.setPassword("Secret123!");
 
-        MvcResult result = mockMvc.perform(post("/v1/auth/login")
+        return mockMvc.perform(post("/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(login)))
                 .andExpect(status().isOk())
                 .andReturn();
-
-        return objectMapper.readTree(result.getResponse().getContentAsString())
-                .get("data")
-                .get("refreshToken")
-                .asText();
     }
 }

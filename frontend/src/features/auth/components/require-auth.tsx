@@ -8,13 +8,17 @@ interface RequireAuthProps {
   fallback?: React.ReactNode;
 }
 
+/**
+ * Keeps the private tree mounted once authenticated so child state
+ * (e.g. upload queues) is not wiped by brief loading flickers.
+ */
 export function RequireAuth({
   children,
   fallback = <PageLoader label="Checking authentication" />,
 }: RequireAuthProps) {
   const { isAuthenticated, isLoading } = useAuth();
 
-  if (isLoading) {
+  if (isLoading && !isAuthenticated) {
     return fallback;
   }
 

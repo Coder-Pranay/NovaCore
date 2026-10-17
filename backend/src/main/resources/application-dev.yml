@@ -26,10 +26,20 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+  mail:
+    host: ${NOVACORE_MAIL_HOST:localhost}
+    port: ${NOVACORE_MAIL_PORT:1025}
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
   data:
     redis:
       host: ${NOVACORE_REDIS_HOST:localhost}
-      port: ${NOVACORE_REDIS_PORT:6379}
+      port: ${NOVACORE_REDIS_PORT:6380}
       password: ${NOVACORE_REDIS_PASSWORD:}
       timeout: 2s
 
