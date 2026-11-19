@@ -14,7 +14,7 @@ docker compose -f docker/docker-compose.yml up -d
 
 | Service    | Host port | Default credentials        |
 |------------|-----------|----------------------------|
-| PostgreSQL | 5432      | `novacore` / `novacore`    |
+| PostgreSQL | 5432      | `postgres` / `postgras123` |
 | Redis      | 6380      | (no password)              |
 | MinIO API  | 9000      | `minioadmin` / `minioadmin` |
 | MinIO UI   | 9001      | same as above              |

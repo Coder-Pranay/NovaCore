@@ -25,6 +25,7 @@ export const QUERY_KEYS = {
     all: ["assets"] as const,
     bySpace: (spaceId: string) => ["assets", "space", spaceId] as const,
     detail: (id: string) => ["assets", id] as const,
+    generateStatus: ["assets", "generate-status"] as const,
   },
   search: {
     results: (query: string, page: number, size: number) =>

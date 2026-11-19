@@ -61,6 +61,9 @@ class AssetServiceTest {
     @Mock
     private ActivityLogService activityLogService;
 
+    @Mock
+    private ImageGenerationClient imageGenerationClient;
+
     @InjectMocks
     private AssetService assetService;
 

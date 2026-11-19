@@ -41,3 +41,25 @@ export interface UploadAssetsResult {
   succeeded: number;
   failed: { name: string; message: string }[];
 }
+
+export interface ImageGenStatus {
+  available: boolean;
+  ready: boolean;
+  busy?: boolean;
+  step?: number;
+  steps?: number;
+  percent?: number;
+  etaSeconds?: number | null;
+  device: string | null;
+  model: string | null;
+  lora: string | null;
+  message: string | null;
+}
+
+export interface GenerateAssetPayload {
+  spaceId: string;
+  prompt: string;
+  description?: string;
+  adultConfirmed: boolean;
+  image?: File | null;
+}

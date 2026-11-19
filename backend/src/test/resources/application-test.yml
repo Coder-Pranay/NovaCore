@@ -5,8 +5,8 @@ spring:
 
   datasource:
     url: jdbc:postgresql://${NOVACORE_DB_HOST:localhost}:${NOVACORE_DB_PORT:5432}/novacore_test
-    username: ${NOVACORE_DB_USER:novacore}
-    password: ${NOVACORE_DB_PASSWORD:novacore}
+    username: ${NOVACORE_DB_USER:postgres}
+    password: ${NOVACORE_DB_PASSWORD:postgras123}
     hikari:
       pool-name: NovaCoreTestHikariPool
       maximum-pool-size: 5

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { QUERY_KEYS } from "@/constants";
 import { assetService } from "@/features/assets/api/asset-service";
 import type {
+  GenerateAssetPayload,
   UploadAssetPayload,
   UploadAssetsPayload,
   UploadAssetsResult,
@@ -99,6 +100,32 @@ export function useUploadAsset() {
     },
     onError: (error) => {
       toast.error(getErrorMessage(error, "Unable to upload file"));
+    },
+  });
+}
+
+export function useImageGenStatus() {
+  return useQuery({
+    queryKey: QUERY_KEYS.assets.generateStatus,
+    queryFn: () => assetService.getImageGenStatus(),
+    staleTime: 2_000,
+    refetchInterval: (query) => (query.state.data?.busy ? 2_000 : 10_000),
+    retry: 1,
+  });
+}
+
+export function useGenerateAsset() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: GenerateAssetPayload) =>
+      assetService.generateAsset(payload),
+    onSuccess: () => {
+      invalidateAssetQueries(queryClient);
+      toast.success("Image generated and saved");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Unable to generate image"));
     },
   });
 }

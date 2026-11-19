@@ -6,8 +6,10 @@ import com.novacore.activity.EntityType;
 import com.novacore.auth.exception.AuthenticationFailedException;
 import com.novacore.assets.dto.AssetResponse;
 import com.novacore.assets.dto.CreateAssetRequest;
+import com.novacore.assets.dto.ImageGenStatusResponse;
 import com.novacore.assets.dto.UpdateAssetRequest;
 import com.novacore.assets.exception.AssetNotFoundException;
+import com.novacore.assets.exception.ImageGenerationException;
 import com.novacore.assets.exception.InvalidUploadException;
 import com.novacore.assets.exception.StorageUploadException;
 import com.novacore.assets.mapper.AssetMapper;
@@ -26,8 +28,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.time.Instant;
@@ -46,6 +50,7 @@ public class AssetService {
     private final ObjectStorageService objectStorageService;
     private final StorageProperties storageProperties;
     private final ActivityLogService activityLogService;
+    private final ImageGenerationClient imageGenerationClient;
 
     public AssetService(
             AssetRepository assetRepository,
@@ -54,7 +59,8 @@ public class AssetService {
             AssetMapper assetMapper,
             ObjectStorageService objectStorageService,
             StorageProperties storageProperties,
-            ActivityLogService activityLogService) {
+            ActivityLogService activityLogService,
+            ImageGenerationClient imageGenerationClient) {
         this.assetRepository = assetRepository;
         this.spaceRepository = spaceRepository;
         this.userRepository = userRepository;
@@ -62,6 +68,7 @@ public class AssetService {
         this.objectStorageService = objectStorageService;
         this.storageProperties = storageProperties;
         this.activityLogService = activityLogService;
+        this.imageGenerationClient = imageGenerationClient;
     }
 
     @Transactional
@@ -117,6 +124,89 @@ public class AssetService {
                         "filename", originalFilename,
                         "spaceId", space.getId().toString(),
                         "spaceName", space.getName()));
+        return assetMapper.toResponse(saved);
+    }
+
+    public ImageGenStatusResponse imageGenStatus() {
+        requireAuthenticatedUserId();
+        return imageGenerationClient.status();
+    }
+
+    public AssetResponse generateAsset(
+            UUID spaceId,
+            String prompt,
+            String description,
+            boolean adultConfirmed,
+            MultipartFile referenceImage) {
+        if (!adultConfirmed) {
+            throw new ImageGenerationException(
+                    "Confirm that all generated subjects are fictional adults.",
+                    HttpStatus.BAD_REQUEST);
+        }
+        if (prompt == null || prompt.isBlank()) {
+            throw new ImageGenerationException("Prompt is required", HttpStatus.BAD_REQUEST);
+        }
+        if (referenceImage != null && !referenceImage.isEmpty()) {
+            String type = referenceImage.getContentType();
+            if (type != null && !type.toLowerCase(Locale.ROOT).startsWith("image/")) {
+                throw new ImageGenerationException("Reference file must be an image", HttpStatus.BAD_REQUEST);
+            }
+        }
+
+        byte[] png = imageGenerationClient.generate(prompt.trim(), true, referenceImage);
+        return storeGeneratedPng(spaceId, description, png);
+    }
+
+    private AssetResponse storeGeneratedPng(UUID spaceId, String description, byte[] png) {
+        UUID ownerId = requireAuthenticatedUserId();
+        User owner = userRepository.findById(ownerId)
+                .orElseThrow(() -> new AuthenticationFailedException("Unauthorized"));
+        Space space = findOwnedSpace(spaceId, ownerId);
+
+        String originalFilename = "moss-generated-" + Instant.now().toEpochMilli() + ".png";
+        String mimeType = "image/png";
+        String storageKey = StorageKeyGenerator.generate(ownerId, spaceId, originalFilename);
+
+        try {
+            objectStorageService.upload(
+                    storageKey,
+                    new ByteArrayInputStream(png),
+                    png.length,
+                    mimeType);
+        } catch (RuntimeException ex) {
+            throw new StorageUploadException("Failed to upload generated image to storage", ex);
+        }
+
+        Asset asset = new Asset();
+        asset.setOwner(owner);
+        asset.setSpace(space);
+        asset.setName(extractDisplayName(originalFilename));
+        asset.setDescription(normalizeOptionalText(description));
+        asset.setAssetType(AssetTypeResolver.resolve(mimeType, "png"));
+        asset.setMimeType(mimeType);
+        asset.setFileSize((long) png.length);
+        asset.setStorageKey(storageKey);
+        asset.setOriginalFilename(originalFilename);
+        asset.setExtension("png");
+        asset.setFavorite(false);
+        asset.setArchived(false);
+        asset.setCreatedAt(Instant.now());
+        asset.setUpdatedAt(Instant.now());
+
+        Asset saved = assetRepository.save(asset);
+        activityLogService.logActivity(
+                ownerId,
+                EntityType.ASSET,
+                saved.getId(),
+                ActionType.UPLOADED,
+                "Generated " + originalFilename,
+                "Moss LoRA image added to " + space.getName() + " Space",
+                Map.of(
+                        "assetId", saved.getId().toString(),
+                        "filename", originalFilename,
+                        "spaceId", space.getId().toString(),
+                        "spaceName", space.getName(),
+                        "source", "moss-lora"));
         return assetMapper.toResponse(saved);
     }
 

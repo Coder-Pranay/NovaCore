@@ -7,6 +7,7 @@ import com.novacore.auth.exception.SecurityTokenException;
 import com.novacore.common.api.ApiResponse;
 import com.novacore.spaces.exception.SpaceNotFoundException;
 import com.novacore.assets.exception.AssetNotFoundException;
+import com.novacore.assets.exception.ImageGenerationException;
 import com.novacore.assets.exception.InvalidUploadException;
 import com.novacore.assets.exception.StorageUploadException;
 import com.novacore.search.exception.InvalidSearchQueryException;
@@ -103,6 +104,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidUploadException.class)
     public ResponseEntity<ApiResponse<Void>> handleInvalidUpload(InvalidUploadException ex) {
         return ResponseEntity.badRequest()
+                .body(ApiResponse.failure(ex.getMessage(), List.of(ex.getMessage())));
+    }
+
+    @ExceptionHandler(ImageGenerationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleImageGeneration(ImageGenerationException ex) {
+        return ResponseEntity.status(ex.getStatus())
                 .body(ApiResponse.failure(ex.getMessage(), List.of(ex.getMessage())));
     }
 

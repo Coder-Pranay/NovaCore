@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import {
   CropIcon,
   FileIcon,
+  SparklesIcon,
   UploadCloudIcon,
   UploadIcon,
   XIcon,
@@ -35,6 +36,7 @@ interface UploadAssetFormProps {
   spaces: Space[];
   spacesLoading?: boolean;
   defaultSpaceId?: string;
+  onGenerateFromFile?: (file: File) => void;
 }
 
 function collectFiles(list: FileList | null | undefined): File[] {
@@ -64,6 +66,7 @@ export function UploadAssetForm({
   spaces,
   spacesLoading = false,
   defaultSpaceId,
+  onGenerateFromFile,
 }: UploadAssetFormProps) {
   const spaceSelectId = useId();
   const descriptionId = useId();
@@ -406,24 +409,44 @@ export function UploadAssetForm({
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
                             {image ? (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                disabled={busy || cropOpen}
-                                aria-label={`Crop ${file.name}`}
-                                onClick={() =>
-                                  setReCropTarget({ key, file })
-                                }
-                              >
-                                <CropIcon
-                                  className="size-4"
-                                  aria-hidden="true"
-                                />
-                                <span className="sr-only sm:not-sr-only sm:ml-1">
-                                  Crop
-                                </span>
-                              </Button>
+                              <>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={busy || cropOpen}
+                                  aria-label={`Crop ${file.name}`}
+                                  onClick={() =>
+                                    setReCropTarget({ key, file })
+                                  }
+                                >
+                                  <CropIcon
+                                    className="size-4"
+                                    aria-hidden="true"
+                                  />
+                                  <span className="sr-only sm:not-sr-only sm:ml-1">
+                                    Crop
+                                  </span>
+                                </Button>
+                                {onGenerateFromFile ? (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={busy}
+                                    aria-label={`Generate from ${file.name}`}
+                                    onClick={() => onGenerateFromFile(file)}
+                                  >
+                                    <SparklesIcon
+                                      className="size-4"
+                                      aria-hidden="true"
+                                    />
+                                    <span className="sr-only sm:not-sr-only sm:ml-1">
+                                      Generate
+                                    </span>
+                                  </Button>
+                                ) : null}
+                              </>
                             ) : null}
                             <Button
                               type="button"

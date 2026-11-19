@@ -2,6 +2,7 @@ package com.novacore.assets;
 
 import com.novacore.assets.dto.AssetResponse;
 import com.novacore.assets.dto.CreateAssetRequest;
+import com.novacore.assets.dto.ImageGenStatusResponse;
 import com.novacore.assets.dto.UpdateAssetRequest;
 import com.novacore.common.api.ApiResponse;
 import jakarta.validation.Valid;
@@ -58,6 +59,24 @@ public class AssetController {
             @RequestParam(value = "description", required = false) String description) {
         AssetResponse asset = assetService.uploadAsset(spaceId, description, file);
         return ApiResponse.success(asset, "File uploaded successfully");
+    }
+
+    @GetMapping("/generate/status")
+    public ApiResponse<ImageGenStatusResponse> imageGenStatus() {
+        return ApiResponse.success(assetService.imageGenStatus(), "Image generator status");
+    }
+
+    @PostMapping("/generate")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<AssetResponse> generateAsset(
+            @RequestParam("spaceId") UUID spaceId,
+            @RequestParam("prompt") String prompt,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "adultConfirmed", defaultValue = "false") boolean adultConfirmed,
+            @RequestParam(value = "image", required = false) MultipartFile image) {
+        AssetResponse asset = assetService.generateAsset(
+                spaceId, prompt, description, adultConfirmed, image);
+        return ApiResponse.success(asset, "Image generated and saved");
     }
 
     @GetMapping("/{id}/content")

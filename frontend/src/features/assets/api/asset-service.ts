@@ -1,10 +1,17 @@
 import { apiClient } from "@/services/api/client";
 import type { ApiResponse } from "@/types";
-import type { Asset, UploadAssetPayload } from "@/features/assets/types";
+import type {
+  Asset,
+  GenerateAssetPayload,
+  ImageGenStatus,
+  UploadAssetPayload,
+} from "@/features/assets/types";
 
 const ASSET_PATHS = {
   root: "/v1/assets",
   upload: "/v1/assets/upload",
+  generate: "/v1/assets/generate",
+  generateStatus: "/v1/assets/generate/status",
   byId: (id: string) => `/v1/assets/${id}`,
   content: (id: string) => `/v1/assets/${id}/content`,
 } as const;
@@ -35,6 +42,44 @@ export const assetService = {
       formData,
       {
         timeout: 120_000,
+        transformRequest: [
+          (data, headers) => {
+            if (typeof FormData !== "undefined" && data instanceof FormData) {
+              delete headers["Content-Type"];
+            }
+            return data;
+          },
+        ],
+      },
+    );
+    return response.data.data;
+  },
+
+  async getImageGenStatus(): Promise<ImageGenStatus> {
+    const response = await apiClient.get<ApiResponse<ImageGenStatus>>(
+      ASSET_PATHS.generateStatus,
+      { timeout: 8_000 },
+    );
+    return response.data.data;
+  },
+
+  async generateAsset(payload: GenerateAssetPayload): Promise<Asset> {
+    const formData = new FormData();
+    formData.append("spaceId", payload.spaceId);
+    formData.append("prompt", payload.prompt);
+    formData.append("adultConfirmed", payload.adultConfirmed ? "true" : "false");
+    if (payload.description?.trim()) {
+      formData.append("description", payload.description.trim());
+    }
+    if (payload.image) {
+      formData.append("image", payload.image);
+    }
+
+    const response = await apiClient.post<ApiResponse<Asset>>(
+      ASSET_PATHS.generate,
+      formData,
+      {
+        timeout: 2_700_000,
         transformRequest: [
           (data, headers) => {
             if (typeof FormData !== "undefined" && data instanceof FormData) {

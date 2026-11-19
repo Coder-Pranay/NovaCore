@@ -16,6 +16,7 @@ import {
   AssetsTable,
   AssetsTableSkeleton,
 } from "@/features/assets/components/assets-table";
+import { GenerateImageForm } from "@/features/assets/components/generate-image-form";
 import { UploadAssetForm } from "@/features/assets/components/upload-asset-form";
 import { useAssets, useDeleteAsset } from "@/features/assets/hooks";
 import type { Asset } from "@/features/assets/types";
@@ -34,6 +35,7 @@ export function AssetsPage() {
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
   const [pendingDownloadId, setPendingDownloadId] = useState<string | null>(null);
   const [previewAsset, setPreviewAsset] = useState<Asset | null>(null);
+  const [generateSource, setGenerateSource] = useState<File | null>(null);
 
   const spaceNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -93,7 +95,8 @@ export function AssetsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Assets</h1>
           <p className="text-muted-foreground text-sm">
-            Upload, preview, and download files across your Spaces.
+            Upload, crop, generate, preview, and download files across your
+            Spaces.
           </p>
         </div>
         <Button
@@ -108,11 +111,25 @@ export function AssetsPage() {
       </div>
 
       {canWrite ? (
-        <UploadAssetForm
-          key="assets-upload-form"
-          spaces={spacesQuery.data ?? []}
-          spacesLoading={spacesQuery.isLoading}
-        />
+        <>
+          <UploadAssetForm
+            key="assets-upload-form"
+            spaces={spacesQuery.data ?? []}
+            spacesLoading={spacesQuery.isLoading}
+            onGenerateFromFile={(file) => {
+              setGenerateSource(file);
+              document
+                .getElementById("generate-image")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          />
+          <GenerateImageForm
+            spaces={spacesQuery.data ?? []}
+            spacesLoading={spacesQuery.isLoading}
+            referenceFile={generateSource}
+            onClearReference={() => setGenerateSource(null)}
+          />
+        </>
       ) : null}
 
       {assetsQuery.isLoading ? (

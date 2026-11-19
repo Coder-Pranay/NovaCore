@@ -50,7 +50,14 @@ coverage/
 .nyc_output/
 *.lcov
 
+# Image gen (Python)
+image-gen/.venv/
+image-gen/__pycache__/
+image-gen/models/
+image-gen/*.png
+
 # Misc
 *.tmp
 *.bak
 *.cache
+.dmux/

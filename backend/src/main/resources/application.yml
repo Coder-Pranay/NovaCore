@@ -80,3 +80,7 @@ novacore:
     region: ${NOVACORE_STORAGE_REGION:us-east-1}
     max-file-size: ${NOVACORE_STORAGE_MAX_FILE_SIZE:50MB}
     allowed-content-types: []
+  image-gen:
+    url: ${NOVACORE_IMAGE_GEN_URL:http://127.0.0.1:8090}
+    connect-timeout-ms: ${NOVACORE_IMAGE_GEN_CONNECT_TIMEOUT_MS:10000}
+    read-timeout-ms: ${NOVACORE_IMAGE_GEN_READ_TIMEOUT_MS:2700000}
